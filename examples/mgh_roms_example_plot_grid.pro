@@ -3,7 +3,7 @@
 ;   MGH_ROMS_EXAMPLE_PLOT_GRID
 ;
 ; PURPOSE:
-;   Lake Jersey grid plot example
+;   Grid plot examples
 ;
 ;###########################################################################
 ; Copyright (c) 2016 NIWA:
@@ -31,12 +31,51 @@ pro mgh_roms_example_plot_grid, option
 
       0: begin
 
-         name = 'INLET_TEST grid'
+         name = 'WC13 depth'
 
-         file = filepath('inlet_test_grid.nc', ROOT=root, SUBDIR=['data','inlet_test','Data'])
+         file = filepath('wc13_grd.nc', ROOT=root, SUBDIR=['data','WC13','Data'])
 
          mgh_new, 'mgh_roms_plot_grid', file, $
             GRAPH_PROPERTIES={name: name}
+
+      end
+
+      1: begin
+
+         name = 'WC13 Coriolis parameter'
+
+         file = filepath('wc13_grd.nc', ROOT=root, SUBDIR=['data','WC13','Data'])
+
+         mgh_new, 'mgh_roms_plot_grid', file, $
+            VARIABLE='f', DATA_MULTIPLIER=1E4, $
+            GRAPH_PROPERTIES={name: name}, $
+            COLORBAR_PROPERTIES={title: 'f (10^-4 s^-1)'}
+
+      end
+
+      2: begin
+
+         name = 'WC13 inverse xi spacing'
+
+         file = filepath('wc13_grd.nc', ROOT=root, SUBDIR=['data','WC13','Data'])
+
+         mgh_new, 'mgh_roms_plot_grid', file, $
+            VARIABLE='pm', DATA_MULTIPLIER=1E3, $
+            GRAPH_PROPERTIES={name: name}, $
+            COLORBAR_PROPERTIES={title: 'pm (km^-1)'}
+
+      end
+
+      3: begin
+
+         name = 'WC13 inverse eta spacing'
+
+         file = filepath('wc13_grd.nc', ROOT=root, SUBDIR=['data','WC13','Data'])
+
+         mgh_new, 'mgh_roms_plot_grid', file, $
+            VARIABLE='pn', DATA_MULTIPLIER=1E3, $
+            GRAPH_PROPERTIES={name: name}, $
+            COLORBAR_PROPERTIES={title: 'pn (km^-1)'}
 
       end
 
