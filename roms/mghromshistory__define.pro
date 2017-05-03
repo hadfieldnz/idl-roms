@@ -12,27 +12,46 @@
 ;   Several of the methods below are used to support extraction of
 ;   data on spatial slices through the ROMS grid. The slice types are:
 ;
-;     C-slice (Cslice)
+;     C-slice
 ;       Vertical along the grid lines in the direction of increasing
 ;       xi (DIRECTION=0) or eta (DIRECTION=1).
 ;
-;     H-slice (Hslice)
-;       Horizontal, i.e. constant z, constant s, or constant-sigma.
+;     H-slice
+;       Horizontal, i.e. constant z, constant s, constant sigma or
+;       on a sediment layer.
 ;
-;     X-slice (Xslice)
-;       Vertical along a straight line (in x,y or lon,lat space) with
-;       defined end points.
+;     P-slice
+;       A vertical slice along the grid's normal velocity surfaces,
+;       defined by a series of vertices on the PSI grid. P-slices
+;       are intended to allow the exact calculation of volume and
+;       tracer fluxes.
 ;
-;   The vertical slices (Cslice and Xslice) naturally reduce in the
+;     R-slice
+;       A 2D horizontal slice on a rectilinear lon-lat grid. Not yet
+;       implemented (2017-05-03).
+;
+;     X-slice
+;       A vertical slice along a straight or curved line (in x,y or lon,lat
+;       space). The line is defined by at least two points and can be
+;       (piecewise) linear or curved, with intermediate points determined
+;       by a spline function.
+;
+;   The vertical slices (Cslice, Pslice and Xslice) naturally reduce in the
 ;   vertical to horizontal (constant z, constant s, or depth-invariant)
-;   transects along the same path. These are called C-transect and X-transect,
-;   abbreviated Ctran and Xtran.
+;   transects along the same path. These are called C-transect, P-transect
+;   and X-transect, abbreviated Ctran, Ptran and Xtran.
 ;
 ;   Hslices and Cslices are specified relative to the grid associated
 ;   with a particular variable. So in constructing an Hslice or Cslice
 ;   one must specify the associated variable (or the variable dimensions). The
 ;
-;   Xslices are defined in physical space, so no associated variable is required.
+;   Pslices are defined in relative to the PSI grid and Xslices are defined in
+;   physical space, so no associated variable is required.
+;
+;   P-slices can be thought of as generalisations of the slice geometry implied
+;   in the GetTransportSlice method, though in the latter case we (perversely, I think)
+;   define the slice on the RHO grid and then draw it through the normal-velocity
+;   faces on the south or west sides of the cells.
 ;
 ; PATCHES:
 ;   A Patch is a polygonal area over which integrals (and maybe other statistics)
@@ -364,7 +383,7 @@ pro MGHromsHistory::Cleanup
 end
 
 ; ** C-slice and C-transect methods *******************************************
-
+;
 ; MGHromsHistory::CsliceData
 ;
 function MGHromsHistory::CsliceData, variable, $
@@ -603,8 +622,7 @@ function MGHromsHistory::CsliceGrid, $
     1: ppvar = 'pn'
   endcase
 
-  pp = mgh_stagger(reform(self->VarGet(ppvar, COUNT=count, OFFSET=offset)), $
-                   DELTA=-1)
+  pp = mgh_stagger(reform(self->VarGet(ppvar, COUNT=count, OFFSET=offset)), DELTA=-1)
 
   ;; Calculate arc distance from origin
 
@@ -1600,6 +1618,8 @@ function MGHromsHistory::HasVar, var
 
 end
 
+; ** H-slice methods *******************************************
+;
 ; MGHromsHistory::HsliceData
 ;
 function MGHromsHistory::HsliceData, var, $
@@ -2143,29 +2163,22 @@ function MGHromsHistory::HsliceMean, var, $
    ;; grid is consistent with the current variable name & function
    ;; arguments.
 
-   case n_elements(grid) gt 0 of
-
-      0: begin
-         grid = self->HsliceGrid(var, ETA_RANGE=eta_range, $
-                                 LONLAT=lonlat, XI_RANGE=xi_range)
-      end
-
-      1: begin
-         dims = self->VarDims(var)
-         if ~ array_equal(dims.horizontal, grid.dims.horizontal) gt 0 then $
-              message, 'Horizontal dimensions of variable do not match GRID data'
-         if dims.vertical ne grid.dims.vertical then $
-              message, 'Vertical dimension of variable does not match GRID data'
-         if dims.time ne grid.dims.time then $
-              message, 'Time dimension of variable does not match GRID data'
-         mgh_undefine, dims
-         if n_elements(xi_range) gt 0 && ~ array_equal(xi_range,grid.xi_range) then $
-              message, 'XI_RANGE does not match grid data'
-         if n_elements(eta_range) gt 0 && ~ array_equal(eta_range,grid.eta_range) then $
-              message, 'ETA_RANGE does not match grid data'
-      end
-
-   endcase
+   if n_elements(grid) gt 0 then begin
+      dims = self->VarDims(var)
+      if ~ array_equal(dims.horizontal, grid.dims.horizontal) gt 0 then $
+         message, 'Horizontal dimensions of variable do not match GRID data'
+      if dims.vertical ne grid.dims.vertical then $
+         message, 'Vertical dimension of variable does not match GRID data'
+      if dims.time ne grid.dims.time then $
+         message, 'Time dimension of variable does not match GRID data'
+      mgh_undefine, dims
+      if n_elements(xi_range) gt 0 && ~ array_equal(xi_range,grid.xi_range) then $
+         message, 'XI_RANGE does not match grid data'
+      if n_elements(eta_range) gt 0 && ~ array_equal(eta_range,grid.eta_range) then $
+         message, 'ETA_RANGE does not match grid data'
+   endif else begin
+      grid = self->HsliceGrid(var, ETA_RANGE=eta_range, LONLAT=lonlat, XI_RANGE=xi_range)
+   endelse
 
    ;; Select records over which average is to be taken
 
@@ -2173,41 +2186,38 @@ function MGHromsHistory::HsliceMean, var, $
 
    has_time = strlen(grid.dims.time) gt 0
 
-   case has_time of
-      0: begin
-         rran = 1
-         msg = ['Variable', self.var, 'does not vary with time']
-         message, /INFORM, strjoin(temporary(msg), ' ')
-      end
-      1: begin
-         case 1B of
-            self->HasVar(grid.dims.time): $
-                 time_var = grid.dims.time
-            self->HasVar('ocean_time'): $
-                 time_var = 'ocean_time'
-            self->HasVar('scrum_time'): $
-                 time_var = 'scrum_time'
-            else: $
-                 message, 'Time variable not found'
-         endcase
-         time = self->VarGet(time_var)
-         if n_elements(time_range) gt 0 then begin
-            record_range = mgh_subset(time, time_range)
-         endif
-         if n_elements(record_range) eq 0 then begin
-            n_time = self->DimInfo(grid.dims.time, /DIMSIZE)
-            record_range = [0,n_time-1]
-         endif
-         if n_elements(time_range) eq 0 then $
-              time_range = time[record_range]
-         msg = ['Getting', var, 'data between records', strtrim(record_range,2), $
-                'times', mgh_format_float(time[record_range])]
-         message, /INFORM, strjoin(temporary(msg), ' ')
-         rra0 = record_range[0]
-         rra1 = record_range[1]
-         rran = rra1-rra0+1
-      end
-   endcase
+   if has_time then begin
+      case !true of
+         self->HasVar(grid.dims.time): $
+            time_var = grid.dims.time
+         self->HasVar('ocean_time'): $
+            time_var = 'ocean_time'
+         self->HasVar('scrum_time'): $
+            time_var = 'scrum_time'
+         else: $
+            message, 'Time variable not found'
+      endcase
+      time = self->VarGet(time_var)
+      if n_elements(time_range) gt 0 then begin
+         record_range = mgh_subset(time, time_range)
+      endif
+      if n_elements(record_range) eq 0 then begin
+         n_time = self->DimInfo(grid.dims.time, /DIMSIZE)
+         record_range = [0,n_time-1]
+      endif
+      if n_elements(time_range) eq 0 then $
+         time_range = time[record_range]
+      msg = ['Getting', var, 'data between records', strtrim(record_range,2), $
+         'times', mgh_format_float(time[record_range])]
+      message, /INFORM, strjoin(temporary(msg), ' ')
+      rra0 = record_range[0]
+      rra1 = record_range[1]
+      rran = rra1-rra0+1
+   endif else begin
+      rran = 1
+      msg = ['Variable', self.var, 'does not vary with time']
+      message, /INFORM, strjoin(temporary(msg), ' ')
+   endelse
 
    ;; Get first slice
 
@@ -2216,10 +2226,11 @@ function MGHromsHistory::HsliceMean, var, $
                              _STRICT_EXTRA=_extra)
 
    if rran gt 0 then begin
-      for r=rra0+1,rra1 do $
-           result += self->HsliceData(var, ETA_RANGE=eta_range, GRID=grid, $
-                                      LONLAT=lonlat, RECORD=r, XI_RANGE=xi_range, $
-                                      _STRICT_EXTRA=_extra)
+      for r=rra0+1,rra1 do begin
+         result += self->HsliceData(var, ETA_RANGE=eta_range, GRID=grid, $
+                                    LONLAT=lonlat, RECORD=r, XI_RANGE=xi_range, $
+                                    _STRICT_EXTRA=_extra)
+      begin
       result /= float(rran)
    endif
 
@@ -2249,6 +2260,1012 @@ function MGHromsHistory::LocateXY, x, y, LONLAT=lonlat
    endelse
 
    return, mgh_locate2(xr, yr, XOUT=[x], YOUT=[y])
+
+end
+
+; ** P-slice and P-transect methods *******************************************
+
+; MGHromsHistory::PsliceData
+;
+function MGHromsHistory::PsliceData, variable, $
+   ALONG_RANGE=along_range, DIRECTION=direction, $
+   GRID=grid, INDEX=index, LONLAT=lonlat, RECORD=record
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   ;; Get dimensions of variable
+
+   dims = self->VarDims(variable)
+
+   ;; Get grid info if necessary
+
+   self->PsliceDefGrid, $
+      ALONG_RANGE=along_range, DIRECTION=direction, $
+      GRID=grid, INDEX=index, LONLAT=lonlat
+
+   ;; Some handy constants
+
+   has_vert = strlen(dims.vertical) gt 0
+   has_time = strlen(dims.time) gt 0
+
+   if ~ has_vert then $
+      message, 'Variable has no vertical dimension'
+
+   ;; Set defaults
+
+   if n_elements(mask_value) eq 0 then mask_value = !values.f_nan
+
+   ;; Check consistency of function arguments with variable dimensions.
+
+   if has_time then begin
+      if n_elements(record) eq 0 then record = 0
+      if record lt 0 then $
+         record = self->DimInfo(dims.time, /DIMSIZE) + record
+   endif else begin
+      if n_elements(record) gt 0 then begin
+         message, 'The RECORD keyword is not required or allowed when ' + $
+            'the variable '+variable+' has no time dimension'
+      endif
+   endelse
+
+   ;; Get s-coordinate data
+
+   scoord = self->GetScoord(dims.vertical)
+
+   ;; Constants & abbreviations:
+
+   ara0 = grid.along_range[0]
+   ara1 = grid.along_range[1]
+   aran = ara1-ara0+1
+
+   ;; Specify parameters for getting data...
+
+   ;; ...horizontal dimension
+
+   case grid.direction of
+      0: begin
+         offset = [ara0,grid.index]
+         count = [aran,1]
+      end
+      1: begin
+         offset = [grid.index,ara0]
+         count = [1,aran]
+      end
+   endcase
+
+   delta = [0,0]
+
+   case strjoin(dims.horizontal, ' ') of
+      'xi_rho eta_rho':
+      'xi_u eta_u': begin
+         offset[0] -= 1
+         count[0] += 1
+         delta[0] -= 1
+      end
+      'xi_v eta_v': begin
+         offset[1] -= 1
+         count[1] += 1
+         delta[1] -= 1
+      end
+      'xi_psi eta_psi': begin
+         offset -= 1
+         count += 1
+         delta -= 1
+      end
+   endcase
+
+   ;; ...vertical dimension
+
+   offset = [offset,0]
+   count = [count,0]
+   delta = [delta,0]
+
+   ;; ...time dimension
+
+   if has_time then begin
+      offset = [offset,record]
+      count = [count,1]
+      delta = [delta,0]
+   endif
+
+   ;; Get data, re-grid if necessary, and return
+
+   result = self->VarGet(variable, OFFSET=offset, COUNT=count, /AUTOSCALE)
+
+   return, reform(mgh_stagger(result, DELTA=delta))
+
+end
+
+; MGHromsHistory::PsliceDefGrid
+;
+pro MGHromsHistory::PsliceDefGrid, $ $
+   GRID=grid, LONLAT=lonlat, VERTX=vertx, VERTY=verty
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   ;; If grid information is supplied, then check it is consistent with the
+   ;; current function arguments; otherwise get the grid information.
+
+   if n_elements(grid) gt 0 then begin
+
+      if n_elements(lonlat) gt 0  && ~ array_equal(lonlat, grid.lonlat) then $
+         message, 'LONLAT does not match grid data'
+      if n_elements(vertx) gt 0  && ~ array_equal(vertx, grid.vertx) then $
+         message, 'VERTX does not match grid data'
+      if n_elements(verty) gt 0  && ~ array_equal(verty, grid.verty) then $
+         message, 'VERTY does not match grid data'
+
+   endif else begin
+
+      grid = self->PsliceGrid(LONLAT=lonlat, VERTX=vertx, VERTY=verty)
+
+   endelse
+
+end
+
+; MGHromsHistory::PsliceGrid
+;
+function MGHromsHistory::PsliceGrid, $
+   LONLAT=lonlat, VERTX=vertx, VERTY=verty
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   if n_elements(lonlat) eq 0 then $
+      lonlat = self->HasVar('lon_rho') && self->HasVar('lat_rho')
+
+   ;; Get dimensions for RHO points
+
+   dim_rho = self->DimRho()
+
+   if n_elements(vertx) eq 0 then $
+      vertx = [
+
+   ;; Some useful switches
+
+   has_mask = self->HasVar('mask_rho')
+
+   ;; Establish horizontal range. Default is to include all interior RHO
+   ;; points on a slice through the centre of the domain.
+
+   if n_elements(index) eq 0 then $
+      index = round(0.5*(dim_rho[1-direction]-2))
+
+   if n_elements(along_range) eq 0 then along_range = [1,-2]
+
+   ;; Interpret negative values in INDEX and ALONG_RANGE as offsets
+   ;; from the end of the grid.
+
+   if index lt 0 then $
+      index += dim_rho[1-direction]
+   if along_range[0] lt 0 then $
+      along_range[0] += dim_rho[direction]
+   if along_range[1] lt 0 then $
+      along_range[1] += dim_rho[direction]
+
+   n_along = along_range[1]-along_range[0]+1
+
+   ;; Check values are within bounds
+
+   ivalid = [0,dim_rho[1-direction]-1]
+   avalid = [0,dim_rho[direction]-1]
+
+   if index lt ivalid[0] then message, 'Slice is out of bounds'
+   if index gt ivalid[1] then message, 'Slice is out of bounds'
+   if along_range[0] lt avalid[0] then message, 'Slice is out of bounds'
+   if along_range[1] gt avalid[1] then message, 'Slice is out of bounds'
+
+   mgh_undefine, svalid, avalid
+
+   ;; Create arrays of xi & eta location
+
+   case direction of
+      0: begin
+         xi  = along_range[0]+lindgen(n_along)
+         eta = replicate(index, n_along)
+      end
+      1: begin
+         xi  = replicate(index, n_along)
+         eta = along_range[0]+lindgen(n_along)
+      end
+   endcase
+
+   ;; Specify parameters for retrieving rho grid data on the
+   ;; slice
+
+   case direction of
+      0: begin
+         count = [n_along,1]
+         offset = [along_range[0],index]
+      end
+      1: begin
+         count = [1,n_along]
+         offset = [index,along_range[0]]
+      end
+   endcase
+
+   ;; Retrieve inverse grid spacing data and calculate arc (along-slice)
+   ;; distance
+
+   case direction of
+      0: ppvar = 'pm'
+      1: ppvar = 'pn'
+   endcase
+
+   pp = mgh_stagger(reform(self->VarGet(ppvar, COUNT=count, OFFSET=offset)), DELTA=-1)
+
+   ;; Calculate arc distance from origin
+
+   arc = fltarr(n_along)
+   for i=1,n_along-1 do arc[i] = arc[i-1] + 1/pp[i-1]
+
+   ;; Retrieve horizontal position
+
+   case lonlat of
+      0: begin
+         xvar = 'x_rho'
+         yvar = 'y_rho'
+      end
+      1: begin
+         xvar = 'lon_rho'
+         yvar = 'lat_rho'
+      end
+   endcase
+
+   x = reform(self->VarGet(xvar, OFFSET=offset, COUNT=count))
+   y = reform(self->VarGet(yvar, OFFSET=offset, COUNT=count))
+
+   ;; Retrieve bathymetry and mask
+
+   h = 0
+   h = reform(self->VarGet('h', OFFSET=offset, COUNT=count))
+
+   if self->HasVar('mask_rho') then begin
+      mask = reform(self->VarGet('mask_rho', OFFSET=offset, COUNT=count))
+   endif else begin
+      mask = replicate(1, n_along)
+   endelse
+
+   ;; Return result structure
+
+   return, {lonlat: lonlat, direction: direction, $
+      index: index, along_range: along_range, $
+      x: x, y: y, arc: arc, xi: xi, eta: eta, $
+      h: h, mask: mask}
+end
+
+; MGHromsHistory::PsliceZ
+;
+function MGHromsHistory::PsliceZ, variable, $
+   ALONG_RANGE=along_range, BATH=bath, DIRECTION=direction, $
+   GRID=grid, INDEX=index, LONLAT=lonlat, ZETA=zeta
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   ;; Get grid info if necessary.
+
+   self->PsliceDefGrid, $
+      DIRECTION=direction, INDEX=index, ALONG_RANGE=along_range, $
+      GRID=grid, LONLAT=lonlat
+
+   ;; Get the variable's vertical dimension
+
+   dims = self->VarDims(variable)
+   if strlen(dims.vertical) eq 0 then $
+      message, 'Variable has no vertical dimension'
+
+   ;; Get s-coordinate data
+
+   scoord = self->GetScoord(dims.vertical)
+
+   ;; Handy constants
+
+   n_arc = n_elements(grid.arc)
+   n_sc = n_elements(scoord.s)
+
+   ;; Set defaults
+
+   if n_elements(bath) eq 0 then bath = grid.h
+
+   if n_elements(zeta) eq 0 then zeta = fltarr(n_arc)
+
+   ;; Create result array & load data into it one column at a time.
+
+   result = fltarr(n_sc, n_arc)
+
+   cs = mgh_roms_s_to_cs(scoord.s, $
+      THETA_S=scoord.theta_s, THETA_B=scoord.theta_b, $
+      VSTRETCH=scoord.vstretch)
+
+   for i=0,n_arc-1 do $
+      result[0,i] = mgh_roms_s_to_z(scoord.s, bath[i], $
+      ZETA=zeta[i], HC=scoord.hc, CS=cs, $
+      VTRANSFORM=scoord.vtransform)
+
+   return, transpose(result)
+
+end
+
+; MGHromsHistory::CtranData
+;
+function MGHromsHistory::CtranData, variable, $
+   ALONG_RANGE=along_range, DIRECTION=direction, $
+   DEPTHS=depths, LEVELS=levels, SIGMAS=sigmas, $
+   GRID=grid, INDEX=index, LONLAT=lonlat, RECORD=record, $
+   USE_BATH=use_bath, USE_ZETA=use_zeta
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   ;; Set defaults
+
+   if n_elements(use_bath) eq 0 then use_bath = 0
+   if n_elements(use_zeta) eq 0 then use_zeta = 0
+
+   ;; Get dimensions of variable
+
+   dims = self->VarDims(variable)
+
+   ;; Get grid info if necessary
+
+   self->PsliceDefGrid, $
+      ALONG_RANGE=along_range, DIRECTION=direction, $
+      GRID=grid, INDEX=index, LONLAT=lonlat
+
+   ;; Some handy switches
+
+   has_vert = strlen(dims.vertical) gt 0
+   has_time = strlen(dims.time) gt 0
+
+   ;; Check consistency of function arguments with variable dimensions.
+
+   if has_vert then begin
+      n_key = (n_elements(depths) gt 0) + (n_elements(levels) gt 0) + $
+         (n_elements(sigmas) gt 0)
+      if n_key gt 1 then $
+         message, 'The DEPTHS, LEVELS & SIGMAS keywords cannot be used together'
+   endif else begin
+      if n_elements(depths) gt 0 then begin
+         message, 'The DEPTHS keyword is not required or allowed when ' + $
+            'the variable '+variable+' has no vertical dimension'
+      endif
+      if n_elements(levels) gt 0 then begin
+         message, 'The LEVELS keyword is not required or allowed when ' + $
+            'the variable '+variable+' has no vertical dimension'
+      endif
+      if n_elements(levels) gt 0 then begin
+         message, 'The SIGMAS keyword is not required or allowed when ' + $
+            'the variable '+variable+' has no vertical dimension'
+      endif
+   endelse
+
+   if has_time then begin
+      if n_elements(record) eq 0 then record = 0
+      if record lt 0 then $
+         record = self->DimInfo(grid.dims.time,/DIMSIZE) + record
+   endif else begin
+      if n_elements(record) gt 0 then begin
+         message, 'The RECORD keyword is not required or allowed when ' + $
+            'the variable '+variable+' has no time dimension'
+      endif
+      if use_bath then begin
+         message, 'The USE_BATH option may not be activated when ' + $
+            'the variable '+variable+' has no time dimension'
+      endif
+      if use_zeta then begin
+         message, 'The USE_ZETA option may not be activated when ' + $
+            'the variable '+variable+' has no time dimension'
+      endif
+   endelse
+
+   ;; If variable has a vertical dimension, get s-coordinate data
+
+   if has_vert then scoord = self->GetScoord(dims.vertical)
+
+   ;; Establish levels/depths at which data are required
+
+   get_depths = n_elements(depths) gt 0
+   get_sigmas = n_elements(sigmas) gt 0
+   get_levels = n_elements(levels) gt 0
+
+   case 1B of
+      get_depths: n_tran = n_elements(depths)
+      get_levels: n_tran = n_elements(levels)
+      get_sigmas: n_tran = n_elements(sigmas)
+      else: begin
+         n_tran = 1
+         if has_vert then levels = scoord.n_s-1
+      endelse
+   endcase
+
+   ;; More handy constants
+
+   ara0 = grid.along_range[0]
+   ara1 = grid.along_range[1]
+   aran = ara1-ara0+1
+
+   ;; Create array to hold result.
+
+   result = fltarr(aran, n_tran)
+
+   ;; ...horizontal dimension
+
+   case grid.direction of
+      0: begin
+         offset_h = [ara0,grid.index]
+         count_h = [aran,1]
+      end
+      1: begin
+         offset_h = [grid.index,ara0]
+         count_h = [1,aran]
+      end
+   endcase
+
+   delta_h = [0,0]
+
+   case strjoin(dims.horizontal, ' ') of
+      'xi_rho eta_rho':
+      'xi_u eta_u': begin
+         offset_h[0] -= 1
+         count_h[0] += 1
+         delta_h[0] -= 1
+      end
+      'xi_v eta_v': begin
+         offset_h[1] -= 1
+         count_h[1] += 1
+         delta_h[1] -= 1
+      end
+      'xi_psi eta_psi': begin
+         offset_h -= 1
+         count_h += 1
+         delta_h -= 1
+      end
+   endcase
+
+   ;; Read variable
+
+   if get_depths || get_sigmas then begin
+
+      ;; The DEPTHS or SIGMAS keyword has been specified, so get slices
+      ;; and interpolate vertically
+
+      ;; Build up offset & count vectors for VarGet
+
+      offset = [offset_h,0]
+      count = [count_h,0]
+      delta = [delta_h,0]
+
+      if has_time then begin
+         offset = [offset,record]
+         count = [count,1]
+         delta = [delta,0]
+      endif
+
+      ;; Get a slice
+
+      vslice = self->VarGet(variable, OFFSET=offset, COUNT=count)
+
+      vslice = reform(mgh_stagger(vslice, DELTA=delta))
+
+      ;; Get zeta & bathymetry @ variable location
+
+      if keyword_set(use_bath) then begin
+         message, "Sorry I don't do USE_bath=1 yet!"
+      endif else begin
+         bath = grid.h
+      endelse
+
+      if keyword_set(use_zeta) then begin
+         message, "Sorry I don't do USE_ZETA=1 yet!"
+      endif else begin
+         zeta = fltarr(aran)
+      endelse
+
+      ;; Loop horizontally thru domain interpolating to all depths
+
+      cs = mgh_roms_s_to_cs(grid.s, $
+         THETA_S=grid.theta_s, THETA_B=grid.theta_b, $
+         VSTRETCH=grid.vstretch)
+
+      for i=0,aran-1 do begin
+         zz = mgh_roms_s_to_z(grid.s, bath[i], $
+            ZETA=zeta[i], HC=grid.hc, CS=cs, $
+            VTRANSFORM=grid.vtransform)
+         if get_sigmas then begin
+            zs = sigmas*zeta[i]-(1-sigmas)*bath[i]
+            result[i,*] = interpol(vslice[i,*], zz, zs, /QUADRATIC)
+         endif else begin
+            result[i,*] = interpol(vslice[i,*], zz, -float(depths), /QUADRATIC)
+            l_bottom = where(depths gt bath[i], n_bottom)
+            if n_bottom gt 0 then result[i,l_bottom] = !values.f_nan
+         endelse
+      endfor
+
+   endif else begin
+
+      ;; DEPTHS & SIGMAS not specified, so no vertical interpolation
+      ;; necessary. Get data for each level separately
+
+      for k=0,n_tran-1 do begin
+
+         ;; Build up offset & count vectors for VarGet
+
+         offset = offset_h
+         count = count_h
+         delta = delta_h
+
+         if has_vert then begin
+            offset = [offset,levels[k]]
+            count = [count,1]
+            delta = [delta,0]
+         endif
+
+         if has_time gt 0 then begin
+            offset = [offset,record]
+            count = [count,1]
+            delta = [delta,0]
+         endif
+
+         ;; Get data and load into result array.
+
+         data = self->VarGet(variable, OFFSET=offset, COUNT=count)
+
+         data = reform(mgh_stagger(data, DELTA=delta))
+
+         result[*,k] = data
+
+      endfor
+
+   endelse
+
+   ;; Reset masked values. This is commented out for now because
+   ;; there are some tricky issues to do with staggered grids
+   ;; and multi-slice averaging that I haven't sorted out yet.
+
+   ;  if size(grid.mask, /N_DIMENSIONS) gt 0 then begin
+   ;    n_s = grid.average ? 1 : n_slice
+   ;    for s=0,n_s-1 do begin
+   ;      ww = where(grid.mask[*,s] lt 0.01, count)
+   ;      if count gt 0 then begin
+   ;        for k=0,n_tran-1 do begin
+   ;          r = result[*,k,s]
+   ;          r[ww] = mask_value
+   ;          result[0,k,s] = r
+   ;        endfor
+   ;      endif
+   ;    endfor
+   ;  endif
+
+   return, result
+
+end
+
+; MGHromsHistory::RsliceData
+;
+function MGHromsHistory::RsliceData, var
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   message, 'This function has not been fully implemented yet'
+
+   ;; Check for problems with inputs
+
+   if n_elements(var) ne 1 then $
+      message, 'The name of a variable must be supplied'
+
+   if ~ (isa(var, 'STRING') || isa(var, 'STRUCT'))  then $
+      message, 'A variable identifier must be supplied'
+
+   ;; Set defaults
+
+   if n_elements(mask_value) eq 0 then mask_value = !values.f_nan
+
+   if n_elements(depths) gt 0 || n_elements(sigmas) gt 0 then begin
+      if n_elements(use_bath) eq 0 then use_bath = self->HasVar('bath')
+      if n_elements(use_zeta) eq 0 then use_zeta = self->HasVar('zeta')
+   endif
+
+   ;; If no grid information is supplied, then get it. Otherwise check
+   ;; grid is consistent with the current variable name & function
+   ;; arguments.
+
+   if n_elements(grid) gt 0 then begin
+      dims = self->VarDims(var)
+      if ~ array_equal(dims.horizontal, grid.dims.horizontal) gt 0 then $
+         message, 'Horizontal dimensions of variable do not match GRID data'
+      if dims.bed ne grid.dims.bed then $
+         message, 'Vertical dimension of variable does not match GRID data'
+      if dims.vertical ne grid.dims.vertical then $
+         message, 'Vertical dimension of variable does not match GRID data'
+      if dims.time ne grid.dims.time then $
+         message, 'Time dimension of variable does not match GRID data'
+      mgh_undefine, dims
+      if n_elements(xi_range) gt 0 && ~ array_equal(xi_range,grid.xi_range) then $
+         message, 'XI_RANGE does not match grid data'
+      if n_elements(eta_range) gt 0 && ~ array_equal(eta_range,grid.eta_range) then $
+         message, 'ETA_RANGE does not match grid data'
+   endif else begin
+      grid = self->HsliceGrid(var, ETA_RANGE=eta_range, LONLAT=lonlat, XI_RANGE=xi_range)
+   endelse
+
+   ;; Check consistency of function arguments with variable dimensions
+
+   if grid.dims.vertical then begin
+      n_key = (n_elements(depths) gt 0) + (n_elements(levels) gt 0) + $
+         (n_elements(sigmas) gt 0)
+      if n_key gt 1 then $
+         message, 'The DEPTHS, LEVELS & SIGMAS keywords cannot be used together'
+   endif else begin
+      fmt = '(%"The %s keyword is not required or allowed when the ' + $
+         'variable %s has no vertical dimension")'
+      if n_elements(levels) gt 0 then message, string(FORMAT=fmt, 'LEVELS', var)
+      if n_elements(depths) gt 0 then message, string(FORMAT=fmt, 'DEPTHS', var)
+      if n_elements(sigmas) gt 0 then message, string(FORMAT=fmt, 'SIGMAS', var)
+   endelse
+
+   if grid.dims.bed then begin
+      ;; Actually, I haven't thought of anything to test here
+   endif else begin
+      fmt = '(%"The %s keyword is not required or allowed when the ' + $
+         'variable %s has no vertical dimension")'
+      if n_elements(layers) gt 0 then message, string(FORMAT=fmt, 'LAYERS', var)
+   endelse
+
+   if grid.dims.time then begin
+      if n_elements(record) eq 0 then record = 0
+      if record lt 0 then $
+         record = self->DimInfo(grid.dims.time, /DIMSIZE) + record
+   endif else begin
+      if n_elements(record) gt 0 then begin
+         message, 'The RECORD keyword is not required or allowed when ' + $
+            'the variable '+var+' has no time dimension'
+      endif
+      if keyword_set(use_bath) then begin
+         message, 'The USE_BATH option may not be activated when ' + $
+            'the variable '+var+' has no time dimension'
+      endif
+      if keyword_set(use_zeta) then begin
+         message, 'The USE_ZETA option may not be activated when ' + $
+            'the variable '+var+' has no time dimension'
+      endif
+   endelse
+
+   ;; Abbreviations for xi and eta range
+
+   xra0 = grid.xi_range[0]
+   xra1 = grid.xi_range[1]
+   xran = xra1-xra0+1
+   era0 = grid.eta_range[0]
+   era1 = grid.eta_range[1]
+   eran = era1-era0+1
+
+   ;; If vertical interpolation is required, get bath & zeta at the
+   ;; variable location
+
+   if n_elements(depths) gt 0 || n_elements(sigmas) gt 0 then begin
+
+      if use_bath || use_zeta then begin
+         offset = [xra0,era0,record]
+         count = [xran,eran,1]
+         delta = [0,0]
+         hdims = strjoin(grid.dims.horizontal, ' ')
+         case !true of
+            strmatch(hdims, 'xi_rho eta_rho'):
+            strmatch(hdims, 'xi_u eta_u') || strmatch(hdims, 'xi_u eta_rho'): begin
+               count += [1,0,0]
+               delta -= [1,0]
+            end
+            strmatch(hdims, 'xi_v eta_v') || strmatch(hdims, 'xi_rho eta_v'): begin
+               count += [0,1,0]
+               delta -= [0,1]
+            end
+            strmatch(hdims, 'xi_psi eta_psi'): begin
+               count += [1,1,0]
+               delta -= [1,1]
+            end
+         endcase
+      endif
+
+      if use_bath then begin
+         bath = reform(self->VarGet('bath', OFFSET=offset, COUNT=count))
+         bath = mgh_stagger(bath, DELTA=delta)
+      endif else begin
+         if size(grid.h, /N_DIMENSIONS) ne 2 then $
+            message, 'Static bathymetry data needed but not found'
+         bath = grid.h
+      endelse
+
+      if use_zeta then begin
+         zeta = reform(self->VarGet('zeta', OFFSET=offset, COUNT=count))
+         zeta = mgh_stagger(zeta, DELTA=delta)
+      endif else begin
+         zeta = fltarr(xran, eran)
+      endelse
+
+   endif
+
+   ;; Read & unpack variable, interpolating if necessary
+
+   case !true of
+
+      n_elements(depths) gt 0: begin
+
+         ;; DEPTHS keyword has been set so interpolate to constant-z levels
+
+         n_slice = n_elements(depths)
+
+         ;; DEPTH specified, so get 3D data & interpolate vertically.
+         ;; Since vertical interpolation is required we make a result
+         ;; array of floating point type immediately.
+
+         result = replicate(!values.f_nan, xran, eran, n_slice)
+
+         ;; Build up OFFSET & COUNT vectors for the netCDF get
+         ;; operation
+
+         offset = [xra0,era0,0]
+         count = [xran,eran,grid.n_level]
+
+         if strlen(grid.dims.time) gt 0 then begin
+            offset = [offset, record]
+            count = [count, 1]
+         endif
+
+         ;; Get 3D data.
+
+         var3d = self->VarGet(var, OFFSET=offset, COUNT=count, /AUTOSCALE)
+
+         ;; Loop horizontally thru domain interpolating to z
+         ;; Clip s to avoid slightly, out-of-bounds values generated
+         ;; by netCDF file packing.
+
+         cs = mgh_roms_s_to_cs(grid.s, $
+            THETA_S=grid.theta_s, THETA_B=grid.theta_b, $
+            VSTRETCH=grid.vstretch)
+
+         for i=0,xran-1 do begin
+            for j=0,eran-1 do begin
+               zz = mgh_roms_s_to_z(grid.s, bath[i,j], $
+                  CS=cs, ZETA=zeta[i,j], HC=grid.hc, $
+                  VTRANSFORM=grid.vtransform)
+               varss = reform(var3d[i,j,*])
+               if min(finite(varss)) gt 0 then begin
+                  varzz = interpol(varss, zz, -float(depths), /SPLINE)
+                  varzz[where(depths gt bath[i,j], /NULL)] = !values.f_nan
+                  result[i,j,*] = varzz
+               endif
+            endfor
+         endfor
+
+         !null = !null
+
+      end
+
+      n_elements(sigmas) gt 0: begin
+
+         ;; SIGMAS keyword has been set, so interpolate to constant-sigma levels
+
+         n_slice = n_elements(sigmas)
+
+         ;; SIGMAS specified, so get 3D data & interpolate vertically.
+         ;; Since vertical interpolation is required we make a result
+         ;; array of floating point type immediately.
+
+         result = fltarr(xran, eran, n_slice)
+
+         ;; Build up OFFSET & COUNT vectors for the netCDF get
+         ;; operation
+
+         offset = [xra0,era0,0]
+         count = [xran,eran,n_elements(grid.s)]
+
+         if strlen(grid.dims.time) gt 0 then begin
+            offset = [offset, record]
+            count = [count, 1]
+         endif
+
+         ;; Get 3D data.
+
+         var3d = self->VarGet(var, OFFSET=offset, COUNT=count, /AUTOSCALE)
+
+         ;; Loop horizontally thru domain interpolating to specified sigma:
+         ;; Clip s to avoid slightly out-of-bounds values generated
+         ;; by netCDF file packing.
+
+         cs = mgh_roms_s_to_cs(grid.s, $
+            THETA_S=grid.theta_s, THETA_B=grid.theta_b, $
+            VSTRETCH=grid.vstretch)
+
+         for i=0,xran-1 do begin
+            for j=0,eran-1 do begin
+               zz = mgh_roms_s_to_z(grid.s, bath[i,j], $
+                  ZETA=zeta[i,j], HC=grid.hc, CS=cs, $
+                  VTRANSFORM=grid.vtransform)
+               zsij = sigmas*zeta[i,j]-(1-sigmas)*bath[i,j]
+               varss = interpol(var3d[i,j,*], zz, zsij, /SPLINE)
+               result[i,j,*] = varss
+               !null = check_math()
+            endfor
+         endfor
+
+      end
+
+      else: begin
+
+         ;; Neither DEPTHS nor SIGMAS specified, so vertical interpolation
+         ;; is not necessary
+
+         case 1B of
+            strlen(grid.dims.vertical) gt 0: begin
+               slice = n_elements(levels) gt 0 ? levels : grid.n_level-1
+               n_slice = n_elements(slice)
+            end
+            strlen(grid.dims.bed) gt 0: begin
+               ;; Note that the bed layer index increases downward
+               slice = n_elements(layers) gt 0 ? layers : 0
+               n_slice = n_elements(slice)
+            end
+            else: begin
+               n_slice = 1
+            end
+         endcase
+
+         result = fltarr(xran, eran, n_slice)
+
+         for k=0,n_slice-1 do begin
+
+            offset = [xra0,era0]
+            count = [xran,eran]
+
+            if grid.dims.vertical || grid.dims.bed then begin
+               offset = [offset, slice[k]]
+               count = [count, 1]
+            endif
+
+            if grid.dims.time then begin
+               offset = [offset, record]
+               count = [count, 1]
+            endif
+
+            var2d = self->VarGet(var, OFFSET=offset, COUNT=count, /AUTOSCALE)
+
+            result[*,*,k] = temporary(var2d)
+
+         endfor
+
+      end
+
+   endcase
+
+   ;; Reset masked values
+
+   if size(grid.mask, /N_DIMENSIONS) eq 2 then begin
+
+      l_masked = where(grid.mask lt 0.5, n_masked)
+
+      if n_masked gt 0 then begin
+         for k=0,n_slice-1 do begin
+            r = result[*,*,k]
+            r[l_masked] = mask_value
+            result[0,0,k] = r
+         endfor
+      endif
+
+   end
+
+   return, result
+
+end
+
+; MGHromsHistory::RsliceGrid
+;
+function MGHromsHistory::RsliceGrid
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   message, 'This function has not been fully implemented yet'
+
+   ;; Horizontal grid specification is now complete.
+
+   result = dictionary()
+
+   result.dims = dims
+   result.lon = self->VarGet('lon')
+   result.lat = self->VarGet('lat')
+   result.mask = mask
+   result.angle = angle
+
+   case !true of
+
+      strlen(dims.vertical) gt 0: begin
+
+         ;; For a variable with a vertical dimension we return
+         ;; s-coordinate data
+
+         ;; Retrieve & interpolate static bathymetry (if available)
+
+         if self->HasVar('h') then begin
+            h = self->VarGet('h', OFFSET=offset, COUNT=count)
+            result.h = mgh_stagger(h, DELTA=delta)
+         endif
+
+         ;; Retrieve s-coordinate parameters and s values for the variable. Note that
+         ;; there is similar, but not identical, code in the GetScoord method.
+
+         result.theta_s = self->HasVar('theta_s') ? self->VarGet('theta_s') : self->AttGet('theta_s', /GLOBAL)
+         result.theta_b = self->HasVar('theta_b') ? self->VarGet('theta_b') : self->AttGet('theta_b', /GLOBAL)
+         result.hc = self->HasVar('hc') ? self->VarGet('hc') : self->AttGet('hc', /GLOBAL)
+         result.vstretch = self->HasVar('Vstretching') ? self->VarGet('Vstretching'): 1
+         result.vtransform = self->HasVar('Vtransform') ? self->VarGet('Vtransform'): 1
+
+         ;; The following code is complicated by a couple of changes in ROMS
+         ;; output files:
+         ;;  - In older files, the bottom value of s_w is omitted.
+         ;;  - In ROMS 2.1 and earlier, the names of the s-coordinate variables did
+         ;;    not match the corresponding dimensions--heavens knows why. In ROMS 2.2
+         ;;    this was fixed.
+
+         if self->HasVar(dims.vertical) then begin
+            s = (self->VarGet(dims.vertical) < 0) > (-1)
+         endif else begin
+            n_s_rho = self->DimInfo('s_rho', /DIMSIZE)
+            case dims.vertical of
+               's_rho': begin
+                  if self->HasVar('sc_r') then begin
+                     s =  self->VarGet('sc_r')
+                  endif else begin
+                     s = mgh_stagger(mgh_range(-1, 0, STRIDE=1.0D/n_s_rho), DELTA=-1)
+                  endelse
+               end
+               's_w': begin
+                  if self->HasVar('sc_w') then begin
+                     s = (self->VarGet('sc_w') < 0) > (-1)
+                  endif else begin
+                     s = mgh_range(-1, 0, STRIDE=1.0D/n_s_rho)
+                  endelse
+                  if n_elements(s) eq n_s_rho then s = [-1,s]
+               end
+            endcase
+         endelse
+
+         result.s = s
+         result.n_level = n_elements(s)
+
+      end
+
+      strlen(dims.bed) gt 0: begin
+
+         ;; For a variable with a bed-layer dimension we return
+         ;; the number of layers
+
+         result.n_layer = self->DimInfo(dims.bed, /DIMSIZE)
+
+      end
+
+      else:
+
+   endcase
+
+   return, result->ToStruct(/RECURSIVE)
 
 end
 
