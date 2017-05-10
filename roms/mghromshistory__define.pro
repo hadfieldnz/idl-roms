@@ -1214,7 +1214,7 @@ end
 ;   normal-velocity points. I used to call this method
 ;   GetTransportCslice, and it does use the Cslice terminology for specifying
 ;   the slice location. However it actually uses none of the Cslice code
-;   and I am thinking of redefning a Cslice to be always along rho
+;   and I am thinking of redefining a Cslice to be always along rho
 ;   points, in which case the use of the term Cslice would be misleading.
 ;
 ;   TO DO:
@@ -2146,96 +2146,95 @@ function MGHromsHistory::HsliceMean, var, $
      RECORD_RANGE=record_range, TIME_RANGE=time_range, XI_RANGE=xi_range, $
      _REF_eXTRA=_extra
 
-   compile_opt DEFINT32
-   compile_opt STRICTARR
-   compile_opt STRICTARRSUBS
-   compile_opt LOGICAL_PREDICATE
+  compile_opt DEFINT32
+  compile_opt STRICTARR
+  compile_opt STRICTARRSUBS
+  compile_opt LOGICAL_PREDICATE
 
-   ;; Check for problems with inputs
+  ;; Check for problems with inputs
 
-   if n_elements(var) ne 1 then $
-        message, 'The name of a variable must be supplied'
+  if n_elements(var) ne 1 then $
+     message, 'The name of a variable must be supplied'
 
-   if size(var, /TNAME) ne 'STRING' then $
-        message, 'The name of a variable must be supplied'
+  if size(var, /TNAME) ne 'STRING' then $
+     message, 'The name of a variable must be supplied'
 
-   ;; If no grid information is supplied, then get it. Otherwise check
-   ;; grid is consistent with the current variable name & function
-   ;; arguments.
+  ;; If no grid information is supplied, then get it. Otherwise check
+  ;; grid is consistent with the current variable name & function
+  ;; arguments.
 
-   if n_elements(grid) gt 0 then begin
-      dims = self->VarDims(var)
-      if ~ array_equal(dims.horizontal, grid.dims.horizontal) gt 0 then $
-         message, 'Horizontal dimensions of variable do not match GRID data'
-      if dims.vertical ne grid.dims.vertical then $
-         message, 'Vertical dimension of variable does not match GRID data'
-      if dims.time ne grid.dims.time then $
-         message, 'Time dimension of variable does not match GRID data'
-      mgh_undefine, dims
-      if n_elements(xi_range) gt 0 && ~ array_equal(xi_range,grid.xi_range) then $
-         message, 'XI_RANGE does not match grid data'
-      if n_elements(eta_range) gt 0 && ~ array_equal(eta_range,grid.eta_range) then $
-         message, 'ETA_RANGE does not match grid data'
-   endif else begin
-      grid = self->HsliceGrid(var, ETA_RANGE=eta_range, LONLAT=lonlat, XI_RANGE=xi_range)
-   endelse
+  if n_elements(grid) gt 0 then begin
+     dims = self->VarDims(var)
+     if ~ array_equal(dims.horizontal, grid.dims.horizontal) gt 0 then $
+        message, 'Horizontal dimensions of variable do not match GRID data'
+     if dims.vertical ne grid.dims.vertical then $
+        message, 'Vertical dimension of variable does not match GRID data'
+     if dims.time ne grid.dims.time then $
+        message, 'Time dimension of variable does not match GRID data'
+     mgh_undefine, dims
+     if n_elements(xi_range) gt 0 && ~ array_equal(xi_range,grid.xi_range) then $
+        message, 'XI_RANGE does not match grid data'
+     if n_elements(eta_range) gt 0 && ~ array_equal(eta_range,grid.eta_range) then $
+        message, 'ETA_RANGE does not match grid data'
+  endif else begin
+     grid = self->HsliceGrid(var, ETA_RANGE=eta_range, LONLAT=lonlat, XI_RANGE=xi_range)
+  endelse
 
-   ;; Select records over which average is to be taken
+  ;; Select records over which average is to be taken
 
-   ;; Establish records to be processed
+  ;; Establish records to be processed
 
-   has_time = strlen(grid.dims.time) gt 0
+  has_time = strlen(grid.dims.time) gt 0
 
-   if has_time then begin
-      case !true of
-         self->HasVar(grid.dims.time): $
-            time_var = grid.dims.time
-         self->HasVar('ocean_time'): $
-            time_var = 'ocean_time'
-         self->HasVar('scrum_time'): $
-            time_var = 'scrum_time'
-         else: $
-            message, 'Time variable not found'
-      endcase
-      time = self->VarGet(time_var)
-      if n_elements(time_range) gt 0 then begin
-         record_range = mgh_subset(time, time_range)
-      endif
-      if n_elements(record_range) eq 0 then begin
-         n_time = self->DimInfo(grid.dims.time, /DIMSIZE)
-         record_range = [0,n_time-1]
-      endif
-      if n_elements(time_range) eq 0 then $
-         time_range = time[record_range]
-      msg = ['Getting', var, 'data between records', strtrim(record_range,2), $
-         'times', mgh_format_float(time[record_range])]
-      message, /INFORM, strjoin(temporary(msg), ' ')
-      rra0 = record_range[0]
-      rra1 = record_range[1]
-      rran = rra1-rra0+1
-   endif else begin
-      rran = 1
-      msg = ['Variable', self.var, 'does not vary with time']
-      message, /INFORM, strjoin(temporary(msg), ' ')
-   endelse
+  if has_time then begin
+     case !true of
+        self->HasVar(grid.dims.time): $
+           time_var = grid.dims.time
+        self->HasVar('ocean_time'): $
+           time_var = 'ocean_time'
+        self->HasVar('scrum_time'): $
+           time_var = 'scrum_time'
+        else: $
+           message, 'Time variable not found'
+     endcase
+     time = self->VarGet(time_var)
+     if n_elements(time_range) gt 0 then begin
+        record_range = mgh_subset(time, time_range)
+     endif
+     if n_elements(record_range) eq 0 then begin
+        n_time = self->DimInfo(grid.dims.time, /DIMSIZE)
+        record_range = [0,n_time-1]
+     endif
+     if n_elements(time_range) eq 0 then $
+        time_range = time[record_range]
+     msg = ['Getting', var, 'data between records', strtrim(record_range,2), $
+        'times', mgh_format_float(time[record_range])]
+     message, /INFORM, strjoin(temporary(msg), ' ')
+     rra0 = record_range[0]
+     rra1 = record_range[1]
+     rran = rra1-rra0+1
+  endif else begin
+     rran = 1
+     msg = ['Variable', self.var, 'does not vary with time']
+     message, /INFORM, strjoin(temporary(msg), ' ')
+  endelse
 
-   ;; Get first slice
+  ;; Get first slice
 
-   result = self->HsliceData(var, ETA_RANGE=eta_range, GRID=grid, $
-                             LONLAT=lonlat, RECORD=rra0, XI_RANGE=xi_range, $
-                             _STRICT_EXTRA=_extra)
+  result = self->HsliceData(var, ETA_RANGE=eta_range, GRID=grid, $
+     LONLAT=lonlat, RECORD=rra0, XI_RANGE=xi_range, $
+     _STRICT_EXTRA=_extra)
 
-   if rran gt 0 then begin
-      for r=rra0+1,rra1 do begin
-         result += self->HsliceData(var, ETA_RANGE=eta_range, GRID=grid, $
-                                    LONLAT=lonlat, RECORD=r, XI_RANGE=xi_range, $
-                                    _STRICT_EXTRA=_extra)
-      begin
-      result /= float(rran)
-   endif
+  if rran gt 0 then begin
+     for r=rra0+1,rra1 do begin
+        result += self->HsliceData(var, ETA_RANGE=eta_range, GRID=grid, $
+           LONLAT=lonlat, RECORD=r, XI_RANGE=xi_range, $
+           _STRICT_EXTRA=_extra)
+     endfor
+     result /= float(rran)
+  endif
 
-
-   return, result
+  return, result
 
 end
 
@@ -2265,124 +2264,10 @@ end
 
 ; ** P-slice and P-transect methods *******************************************
 
-; MGHromsHistory::PsliceData
-;
-function MGHromsHistory::PsliceData, variable, $
-   ALONG_RANGE=along_range, DIRECTION=direction, $
-   GRID=grid, INDEX=index, LONLAT=lonlat, RECORD=record
-
-   compile_opt DEFINT32
-   compile_opt STRICTARR
-   compile_opt STRICTARRSUBS
-   compile_opt LOGICAL_PREDICATE
-
-   ;; Get dimensions of variable
-
-   dims = self->VarDims(variable)
-
-   ;; Get grid info if necessary
-
-   self->PsliceDefGrid, $
-      ALONG_RANGE=along_range, DIRECTION=direction, $
-      GRID=grid, INDEX=index, LONLAT=lonlat
-
-   ;; Some handy constants
-
-   has_vert = strlen(dims.vertical) gt 0
-   has_time = strlen(dims.time) gt 0
-
-   if ~ has_vert then $
-      message, 'Variable has no vertical dimension'
-
-   ;; Set defaults
-
-   if n_elements(mask_value) eq 0 then mask_value = !values.f_nan
-
-   ;; Check consistency of function arguments with variable dimensions.
-
-   if has_time then begin
-      if n_elements(record) eq 0 then record = 0
-      if record lt 0 then $
-         record = self->DimInfo(dims.time, /DIMSIZE) + record
-   endif else begin
-      if n_elements(record) gt 0 then begin
-         message, 'The RECORD keyword is not required or allowed when ' + $
-            'the variable '+variable+' has no time dimension'
-      endif
-   endelse
-
-   ;; Get s-coordinate data
-
-   scoord = self->GetScoord(dims.vertical)
-
-   ;; Constants & abbreviations:
-
-   ara0 = grid.along_range[0]
-   ara1 = grid.along_range[1]
-   aran = ara1-ara0+1
-
-   ;; Specify parameters for getting data...
-
-   ;; ...horizontal dimension
-
-   case grid.direction of
-      0: begin
-         offset = [ara0,grid.index]
-         count = [aran,1]
-      end
-      1: begin
-         offset = [grid.index,ara0]
-         count = [1,aran]
-      end
-   endcase
-
-   delta = [0,0]
-
-   case strjoin(dims.horizontal, ' ') of
-      'xi_rho eta_rho':
-      'xi_u eta_u': begin
-         offset[0] -= 1
-         count[0] += 1
-         delta[0] -= 1
-      end
-      'xi_v eta_v': begin
-         offset[1] -= 1
-         count[1] += 1
-         delta[1] -= 1
-      end
-      'xi_psi eta_psi': begin
-         offset -= 1
-         count += 1
-         delta -= 1
-      end
-   endcase
-
-   ;; ...vertical dimension
-
-   offset = [offset,0]
-   count = [count,0]
-   delta = [delta,0]
-
-   ;; ...time dimension
-
-   if has_time then begin
-      offset = [offset,record]
-      count = [count,1]
-      delta = [delta,0]
-   endif
-
-   ;; Get data, re-grid if necessary, and return
-
-   result = self->VarGet(variable, OFFSET=offset, COUNT=count, /AUTOSCALE)
-
-   return, reform(mgh_stagger(result, DELTA=delta))
-
-end
-
 ; MGHromsHistory::PsliceDefGrid
 ;
 pro MGHromsHistory::PsliceDefGrid, $ $
-   GRID=grid, LONLAT=lonlat, VERTX=vertx, VERTY=verty
+   GRID=grid, LONLAT=lonlat, VERT_XI=vert_xi, VERT_ETA=vert_eta
 
    compile_opt DEFINT32
    compile_opt STRICTARR
@@ -2397,13 +2282,13 @@ pro MGHromsHistory::PsliceDefGrid, $ $
       if n_elements(lonlat) gt 0  && ~ array_equal(lonlat, grid.lonlat) then $
          message, 'LONLAT does not match grid data'
       if n_elements(vertx) gt 0  && ~ array_equal(vertx, grid.vertx) then $
-         message, 'VERTX does not match grid data'
+         message, 'VERT_XI does not match grid data'
       if n_elements(verty) gt 0  && ~ array_equal(verty, grid.verty) then $
-         message, 'VERTY does not match grid data'
+         message, 'VERT_ETA does not match grid data'
 
    endif else begin
 
-      grid = self->PsliceGrid(LONLAT=lonlat, VERTX=vertx, VERTY=verty)
+      grid = self->PsliceGrid(LONLAT=lonlat, VERT_XI=vert_xi, VERT_ETA=vert_eta)
 
    endelse
 
@@ -2412,7 +2297,7 @@ end
 ; MGHromsHistory::PsliceGrid
 ;
 function MGHromsHistory::PsliceGrid, $
-   LONLAT=lonlat, VERTX=vertx, VERTY=verty
+   LONLAT=lonlat, VERT_XI=vert_xi, VERT_ETA=vert_eta
 
    compile_opt DEFINT32
    compile_opt STRICTARR
@@ -2422,124 +2307,185 @@ function MGHromsHistory::PsliceGrid, $
    if n_elements(lonlat) eq 0 then $
       lonlat = self->HasVar('lon_rho') && self->HasVar('lat_rho')
 
-   ;; Get dimensions for RHO points
+   ;; The default P-slice is the "southern" normal velocity model boundary,
+   ;; as for the GetTransportSlice method.
 
    dim_rho = self->DimRho()
 
-   if n_elements(vertx) eq 0 then $
-      vertx = [
+   if n_elements(vert_xi) eq 0 then $
+      vert_xi = [0,dim_rho[0]-2]
+   if n_elements(vert_eta) eq 0 then $
+      vert_eta = replicate(0, n_elements(vertx))
 
-   ;; Some useful switches
+   ;; Check slice consistency
+
+   n_vert = n_elements(vert_xi)
+
+   if n_elements(vert_eta) ne n_vert then message, 'Inconsistent vertex lengths'
+
+   vx = round(vert_xi)
+   ve = round(vert_eta)
+
+   if ~ array_equal(vert_xi, vx) then message, 'Non-integral vertices'
+   if ~ array_equal(vert_eta, ve) then message, 'Non-integral vertices'
+
+   if min(vx) lt 0 then message, 'Slice is out of bounds'
+   if max(vx) gt dim_rho[0]-2 then message, 'Slice is out of bounds'
+
+   if min(ve) lt 0 then message, 'Slice is out of bounds'
+   if max(ve) gt dim_rho[1]-2 then message, 'Slice is out of bounds'
+
+   dx = mgh_diff(vx)
+   de = mgh_diff(ve)
+
+   if max(dx*de) gt 0 then message, 'X & Y vertices both vary over the same segment'
+   if min(abs(dx)+abs(de)) eq 0 then message, 'X & Y vertices both unchanged over the same segment'
+
+   ;; Identify all the psi points spanned by the P-slice segments. A bit tricky, this.
+
+   px = list()
+   pe = list()
+
+   px->Add, [vx[0]]
+   pe->Add, [ve[0]]
+
+   for i=0,n_vert-2 do begin
+      if abs(dx[i]) gt 0 then begin
+         px->Add, ([vx[i]:vx[i+1]])[1:*]
+         pe->Add, replicate(ve[i], abs(dx[i]))
+      endif else begin
+         px->Add, replicate(vx[i], abs(de[i]))
+         pe->Add, ([ve[i]:ve[i+1]])[1:*]
+      endelse
+   endfor
+
+   mgh_undefine, vx, ve, dx, de
+
+   point_xi = px->ToArray(DIMENSION=1)
+   point_eta = pe->ToArray(DIMENSION=1)
+
+   mgh_undefine, px, pe
+
+   ;; Various properties now hold by construction and should not need to be checked:
+   ;;
+   ;;  - The point_xi and point_eta arrays have the same number of elements
+   ;;  - Consecutive Pslice points never coincide
+   ;;  - Consecutive Pslice points always shift by -1 or +1 in xi or eta, but not both,
+   ;;    i.e. the segments between points always have length 1.
+   ;;
+   ;; The following code calculates the direction of each segment and relies on these
+   ;; properties. Directions follow the GetTransportBox convention:
+   ;;   0: positive xi, i.e. parallel with the southern boundary
+   ;;   1: positive eta,  i.e. parallel with the eastern boundary
+   ;;   2: negative xi, i.e. parallel with the northern boundary
+   ;;   3: negative eta,  i.e. parallel with the western boundary
+
+   n_point = n_elements(point_xi)
+
+   direction = replicate(255B, n_point-1)
+
+   dx = mgh_diff(point_xi)
+   de = mgh_diff(point_eta)
+
+   direction[where(dx gt 0, /NULL)] = 0
+   direction[where(de gt 0, /NULL)] = 1
+   direction[where(dx lt 0, /NULL)] = 2
+   direction[where(de lt 0, /NULL)] = 3
+
+   if max(direction) gt 3 then message, 'Uh oh, a segment has not been assigned a direction'
+
+   ;; On the rho grid, locate the psi points spanned by the Pslice and the segment centres.
+
+   point_xi_rho = point_xi + 0.5D0
+   point_eta_rho = point_eta + 0.5D0
+
+   centre_xi_rho = mgh_stagger(point_xi_rho, DELTA=-1)
+   centre_eta_rho = mgh_stagger(point_eta_rho, DELTA=-1)
+
+   ;; Interpolate various variables to the Pslice points and centres
+
+   h = self->VarGet('h')
+   point_h = interpolate(h, point_xi_rho, point_eta_rho)
+   centre_h = interpolate(h, centre_xi_rho, centre_eta_rho)
+   mgh_undefine, h
+
+   if lonlat then begin
+      lon = self->VarGet('lon_rho')
+      lat = self->VarGet('lat_rho')
+      point_lon = interpolate(lon, point_xi_rho, point_eta_rho)
+      point_lat = interpolate(lat, point_xi_rho, point_eta_rho)
+      mgh_undefine, lon, lat
+   endif else begin
+      x = self->VarGet('x_rho')
+      y = self->VarGet('y_rho')
+      point_x = interpolate(x, point_xi_rho, point_eta_rho)
+      point_y = interpolate(y, point_xi_rho, point_eta_rho)
+      mgh_undefine, x, y
+   endelse
+
+   pm = self->VarGet('pm')
+   pn = self->VarGet('pn')
+   centre_pm = interpolate(pm, centre_xi_rho, centre_eta_rho)
+   centre_pn = interpolate(pn, centre_xi_rho, centre_eta_rho)
+   mgh_undefine, pm, pn
+
+   ;; For each segment, determine whether it has land on either side
 
    has_mask = self->HasVar('mask_rho')
 
-   ;; Establish horizontal range. Default is to include all interior RHO
-   ;; points on a slice through the centre of the domain.
+   if has_mask then begin
+      mask = self->VarGet('mask_rho')
+      centre_mask = bytarr(n_point-1)
+      for i=0,n_point-2 do begin
+         xx = centre_xi_rho[i]
+         ee = centre_eta_rho[i]
+         if direction[i] mod 2 eq 0 then begin
+            centre_mask[i] = mask[round(xx),floor(ee)] and mask[round(xx),ceil(ee)]
+         endif else begin
+            centre_mask[i] = mask[floor(xx),round(ee)] and mask[ceil(xx),round(ee)]
+         endelse
+      endfor
+   endif
 
-   if n_elements(index) eq 0 then $
-      index = round(0.5*(dim_rho[1-direction]-2))
+   ;; Calculate arc distance along the Pslice. If the Pslice zigzags through the
+   ;; grid near a diagonal, this will be much larger than the straight line distance
 
-   if n_elements(along_range) eq 0 then along_range = [1,-2]
+   point_arc = dblarr(n_point)
+   for i=0,n_point-2 do begin
+      pp = (direction[i] mod 2 eq 0) ? centre_pm[i] : centre_pn[i]
+      point_arc[i+1] = point_arc[i] + 1.0D/pp
+   endfor
 
-   ;; Interpret negative values in INDEX and ALONG_RANGE as offsets
-   ;; from the end of the grid.
+   ;; Compile and return result
 
-   if index lt 0 then $
-      index += dim_rho[1-direction]
-   if along_range[0] lt 0 then $
-      along_range[0] += dim_rho[direction]
-   if along_range[1] lt 0 then $
-      along_range[1] += dim_rho[direction]
+   result = dictionary()
 
-   n_along = along_range[1]-along_range[0]+1
-
-   ;; Check values are within bounds
-
-   ivalid = [0,dim_rho[1-direction]-1]
-   avalid = [0,dim_rho[direction]-1]
-
-   if index lt ivalid[0] then message, 'Slice is out of bounds'
-   if index gt ivalid[1] then message, 'Slice is out of bounds'
-   if along_range[0] lt avalid[0] then message, 'Slice is out of bounds'
-   if along_range[1] gt avalid[1] then message, 'Slice is out of bounds'
-
-   mgh_undefine, svalid, avalid
-
-   ;; Create arrays of xi & eta location
-
-   case direction of
-      0: begin
-         xi  = along_range[0]+lindgen(n_along)
-         eta = replicate(index, n_along)
-      end
-      1: begin
-         xi  = replicate(index, n_along)
-         eta = along_range[0]+lindgen(n_along)
-      end
-   endcase
-
-   ;; Specify parameters for retrieving rho grid data on the
-   ;; slice
-
-   case direction of
-      0: begin
-         count = [n_along,1]
-         offset = [along_range[0],index]
-      end
-      1: begin
-         count = [1,n_along]
-         offset = [index,along_range[0]]
-      end
-   endcase
-
-   ;; Retrieve inverse grid spacing data and calculate arc (along-slice)
-   ;; distance
-
-   case direction of
-      0: ppvar = 'pm'
-      1: ppvar = 'pn'
-   endcase
-
-   pp = mgh_stagger(reform(self->VarGet(ppvar, COUNT=count, OFFSET=offset)), DELTA=-1)
-
-   ;; Calculate arc distance from origin
-
-   arc = fltarr(n_along)
-   for i=1,n_along-1 do arc[i] = arc[i-1] + 1/pp[i-1]
-
-   ;; Retrieve horizontal position
-
-   case lonlat of
-      0: begin
-         xvar = 'x_rho'
-         yvar = 'y_rho'
-      end
-      1: begin
-         xvar = 'lon_rho'
-         yvar = 'lat_rho'
-      end
-   endcase
-
-   x = reform(self->VarGet(xvar, OFFSET=offset, COUNT=count))
-   y = reform(self->VarGet(yvar, OFFSET=offset, COUNT=count))
-
-   ;; Retrieve bathymetry and mask
-
-   h = 0
-   h = reform(self->VarGet('h', OFFSET=offset, COUNT=count))
-
-   if self->HasVar('mask_rho') then begin
-      mask = reform(self->VarGet('mask_rho', OFFSET=offset, COUNT=count))
+   result.lonlat = lonlat
+   result.vert_xi = vert_xi
+   result.vert_eta = vert_eta
+   result.n_point = n_point
+   result.n_segment = n_segment
+   result.direction = direction
+   result.point_xi = point_xi
+   result.point_eta = point_eta
+   result.point_xi_rho = point_xi_rho
+   result.point_eta_rho = point_eta_rho
+   result.centre_xi_rho = centre_xi_rho
+   result.centre_eta_rho = centre_eta_rho
+   result.point_h = point_h
+   result.centre_h = centre_h
+   if lonlat then begin
+      result.point_lon = point_lon
+      result.point_lat = point_lat
    endif else begin
-      mask = replicate(1, n_along)
+      result.point_x = point_x
+      result.point_y = point_y
    endelse
+   result.centre_mask = centre_mask
+   result.point_arc = point_arc
 
-   ;; Return result structure
+   return, result->ToStruct(/RECURSIVE)
 
-   return, {lonlat: lonlat, direction: direction, $
-      index: index, along_range: along_range, $
-      x: x, y: y, arc: arc, xi: xi, eta: eta, $
-      h: h, mask: mask}
 end
 
 ; MGHromsHistory::PsliceZ
