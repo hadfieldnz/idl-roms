@@ -1347,6 +1347,78 @@ function MGHromsHistory::GetTransportSlice, slice , $
 
 end
 
+; MGHromsHistory::GetTransportPslice
+;
+;   Calculate & return transport normal to the specified P-slice.
+;
+;   The transport increases along the Pslice where the velocity is
+;   from right to left.
+;
+function MGHromsHistory::GetTransportPslice, $
+   GRID=grid, RECORD=record, VAR_UBAR=var_ubar, VAR_VBAR=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   if n_elements(grid) eq 0 then grid = self->PsliceGrid()
+
+   if n_elements(record) eq 0 then record = 0
+
+   if n_elements(var_ubar) eq 0 then var_ubar = 'ubar'
+   if n_elements(var_vbar) eq 0 then var_vbar = 'vbar'
+   if n_elements(var_zeta) eq 0 then var_zeta = 'zeta'
+
+   if n_elements(use_zeta) eq 0 then use_zeta = !false
+
+   ;; Get ubar & vbar data for a rectangular region spanning the
+   ;; X-slice
+
+   xr = [floor(min(grid.point_xi_rho)),ceil(max(grid.point_xi_rho))]
+   er = [floor(min(grid.point_eta_rho)),ceil(max(grid.point_eta_rho))]
+
+   xr0 = xr[0]  &  xrn = xr[1]-xr[0]+1
+   er0 = er[0]  &  ern = er[1]-er[0]+1
+
+   uv = self->VectorGet([var_ubar,var_vbar], OFFSET=[xr0,er0,record], COUNT=[xrn,ern,1])
+
+   message, 'OK, time to start thinking!'
+
+   ;; Interpolate to slice interval mid-points
+
+   xx = mgh_stagger(grid.xi, DELTA=[-1])-xr0
+   ee = mgh_stagger(grid.eta, DELTA=-1)-er0
+
+   uv = interpolate(temporary(uv), xx, ee)
+
+   ;; Rotate into slice-relative coordinates.
+
+   uv = temporary(uv)*exp(-!const.i*grid.angle)
+
+   ;; Calculate depth at interval mid-points
+
+   h = mgh_stagger(grid.h, DELTA=[-1])
+
+   if keyword_set(use_zeta) then begin
+      zeta = self->VarGet(var_zeta, OFFSET=[xr0,er0,record], COUNT=[xrn,ern,1])
+      zeta = mgh_fill2d(zeta)
+      xx = mgh_stagger(grid.xi, DELTA=[-1])-xr0
+      ee = mgh_stagger(grid.eta, DELTA=-1)-er0
+      h += interpolate(temporary(zeta), xx, ee)
+   endif
+
+   ;; The normal velocity is the imaginary part of the complex velocity
+
+   result = dblarr(grid.n_points)
+   for i=1,grid.n_points-1 do begin
+      result[i] = result[i-1] + imaginary(uv[i-1])*h[i-1]*(grid.arc[i]-grid.arc[i-1])
+   endfor
+
+   return, result
+
+end
+
 ; MGHromsHistory::GetTransportXslice
 ;
 ;   Calculate & return transport normal to the specified X-slice.
@@ -2135,7 +2207,7 @@ function MGHromsHistory::HsliceGrid, arg, $
 
    endcase
 
-   return, result->ToStruct(/RECURSIVE)
+   return, result->ToStruct(/RECURSIVE, /NO_COPY)
 
 end
 
@@ -2484,7 +2556,7 @@ function MGHromsHistory::PsliceGrid, $
    result.centre_mask = centre_mask
    result.point_arc = point_arc
 
-   return, result->ToStruct(/RECURSIVE)
+   return, result->ToStruct(/RECURSIVE, /NO_COPY)
 
 end
 
@@ -3211,7 +3283,7 @@ function MGHromsHistory::RsliceGrid
 
    endcase
 
-   return, result->ToStruct(/RECURSIVE)
+   return, result->ToStruct(/RECURSIVE, /NO_COPY)
 
 end
 
