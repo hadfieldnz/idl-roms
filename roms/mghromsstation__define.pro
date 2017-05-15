@@ -153,7 +153,7 @@ function MGHromsStation::GetScoord, dim_vertical
    ;; when netCDF data have been packed.
    result.s = (s > (-1)) < 0
 
-   return, result->ToStruct(/RECURSIVE)
+   return, result->ToStruct(/RECURSIVE, /NO_COPY)
 
 end
 
