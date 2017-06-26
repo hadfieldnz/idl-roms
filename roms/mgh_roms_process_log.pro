@@ -21,6 +21,10 @@
 ;     Written.
 ;   Mark Hadfield, 2017-05:
 ;     Added support for the new string-based date output (ticket 724).
+;   Mark Hadfield, 2017-06:
+;     Fixed up code for reading float source locations (process_src option).
+;     Lines are now processed in a WHILE loop instead of a FOR loop, allowing
+;     two lines to be process together.
 ;-
 function mgh_roms_process_log, text
 
@@ -52,7 +56,9 @@ function mgh_roms_process_log, text
 
    result = {n_line: n_line, version: '', date0: !values.d_nan, date1: !values.d_nan, dt: !values.d_nan, n_flt: 0, prm: prm_info}
 
-   for i_line=0,n_line-1 do begin
+   i_line = 0
+
+   while i_line lt n_line do begin
 
       line = text[i_line]
 
@@ -60,16 +66,19 @@ function mgh_roms_process_log, text
 
       if strmatch(line, string(replicate(32B, 20))+'*-*-* ?M') then begin
          result.date0 = mgh_roms_parse_date(strmid(line, 20))
+         i_line++
          continue
       endif
 
       if strmatch(line, '*ROMS/TOMS version*') then begin
          result.version = strtrim(strmid(line, 44), 2)
+         i_line++
          continue
       endif
 
       if strmatch(line, '*ROMS/TOMS: DONE*') then begin
          result.date1 = mgh_roms_parse_date(strmid(line, 20))
+         i_line++
          continue
       endif
 
@@ -79,6 +88,7 @@ function mgh_roms_process_log, text
          process_prm = !true
          process_src = !false
          process_step = !false
+         i_line++
          continue
       endif
 
@@ -86,13 +96,15 @@ function mgh_roms_process_log, text
          process_prm = !false
          process_src = !true
          process_step = !false
+         i_line++
          continue
       endif
 
       if process_src && strmatch(line, '*Nfloats*Number of float trajectories to compute*') then begin
          s = strsplit(line, /EXTRACT)
          result.n_flt = long(s[0])
-         process_src = !true
+         process_src = !false
+         i_line++
          continue
       endif
 
@@ -100,6 +112,7 @@ function mgh_roms_process_log, text
          process_prm = !false
          process_src = !false
          process_step = !true
+         i_line++
          continue
       endif
 
@@ -119,6 +132,7 @@ function mgh_roms_process_log, text
                tt = long(s[0])
                result.prm.time_ref = mgh_dt_julday(YEAR=tt/10000, MONTH=(tt/100) mod 100, DAY=tt mod 100)
             endif
+            i_line++
             continue
          endif
 
@@ -136,17 +150,16 @@ function mgh_roms_process_log, text
          if n_elements(s) eq 11 && min(mgh_str_isnumber(s)) gt 0 then begin
             reads, line, src_info
             src_list->Add, src_info
+            i_line++
             continue
          endif
 
          ;; If there are 7 elements, all numeric, then we have
          ;; double-line float-source data
          if n_elements(s) eq 7 && min(mgh_str_isnumber(s)) gt 0 then begin
-            line_save = line
-            readf, lun, line
-            result.n_line += 1
-            reads, line_save+line, src_info
+            reads, line+text[i_line+1], src_info
             src_list->Add, src_info
+            i_line = i_line+2
             continue
          endif
 
@@ -181,6 +194,7 @@ function mgh_roms_process_log, text
             line = strjoin(['0',s[0],mgh_format_float(time),s[3:*]], ' ')
             reads, line, step_info
             step_list->Add, step_info
+            i_line++
             continue
          endif
 
@@ -197,6 +211,7 @@ function mgh_roms_process_log, text
             line = strjoin(['0',s[0],string(dd+(hh+(mm+ss/60D)/60D)/24D),s[3:*]], ' ')
             reads, line, step_info
             step_list->Add, step_info
+            i_line++
             continue
          endif
 
@@ -214,6 +229,7 @@ function mgh_roms_process_log, text
             line = strjoin([s[0:1],string(dd+(hh+(mm+ss/60D)/60D)/24D),s[4:*]], ' ')
             reads, line, step_info
             step_list->Add, step_info
+            i_line++
             continue
          endif
 
@@ -225,6 +241,7 @@ function mgh_roms_process_log, text
             strmatch(s[0], "(*,*,*)") then begin
             reads, strjoin(s[1:*], ' '), cfl_info
             cfl_list->Add, cfl_info
+            i_line++
             continue
          endif
 
@@ -234,12 +251,15 @@ function mgh_roms_process_log, text
          if n_elements(s) ge 6 && min(mgh_str_isnumber(s)) gt 0 then begin
             reads, line, step_info
             step_list->Add, step_info
+            i_line++
             continue
          endif
 
       endif
 
-   endfor
+      i_line++
+
+   endwhile
 
    ;; Post-process header info
 
