@@ -61,7 +61,7 @@ function Mgh_Roms_Plot_Scatter::Init, file, position, $
 
    case size(file, /TNAME) of
       'STRING': begin
-         case 1B of
+         case !true of
             strmatch(mgh_roms_file_type(file), 'ROMS*station file', /FOLD_CASE): $
                  self.file = obj_new('MGHromsStation', file)
             else: $
@@ -144,24 +144,22 @@ function Mgh_Roms_Plot_Scatter::Init, file, position, $
 
       case 1B of
          n_level gt 0: begin
-            data = mgh_roms_series_vector(ofile, pos, RECORD_RANGE=record_range, $
-                                          VARIABLE=*self.variable, $
-                                          LEVEL=level[s < (n_level-1)])
+            data = mgh_roms_series_vector(ofile, pos, RECORD_RANGE=record_range, TIME_RANGE=time_range, $
+                                          VARIABLE=*self.variable, LEVEL=level[s < (n_level-1)])
          end
          n_depth gt 0: begin
-            data = mgh_roms_series_vector(ofile, pos, RECORD_RANGE=record_range, $
-                                          VARIABLE=*self.variable, $
-                                          DEPTH=depth[s < (n_depth-1)])
+            data = mgh_roms_series_vector(ofile, pos, RECORD_RANGE=record_range, TIME_RANGE=time_range, $
+                                          VARIABLE=*self.variable, DEPTH=depth[s < (n_depth-1)])
          end
          else: begin
-            data = mgh_roms_series_vector(ofile, pos, RECORD_RANGE=record_range, $
+            data = mgh_roms_series_vector(ofile, pos, RECORD_RANGE=record_range, TIME_RANGE=time_range, $
                                           VARIABLE=*self.variable)
          end
       endcase
 
       ;; Rotate
 
-      data.uv *= exp(complex(0, 1)*data.angle)
+      data.uv *= exp(!const.i*data.angle)
 
       ;; Save uv data
 
@@ -419,7 +417,7 @@ pro Mgh_Roms_Plot_Scatter__Define
 
    struct_hide, $
         {Mgh_Roms_Plot_Scatter, inherits MGH_Window, $
-         file: obj_new(), file_destroy: 0B, n_series: 0L, $
+         file: obj_new(), file_destroy: !false, n_series: 0L, $
          variable: ptr_new()}
 
 end
