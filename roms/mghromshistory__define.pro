@@ -4807,7 +4807,7 @@ function MGHromsHistory::VectorGet, var, $
    dim_u = self->VarDims(var[0])
    dim_v = self->VarDims(var[1])
 
-   case 1B of
+   case !true of
       array_equal(dim_u.horizontal, ['xi_rho','eta_rho']) && $
          array_equal(dim_v.horizontal, ['xi_rho','eta_rho']): begin
          grid_type = 'rho'
@@ -4871,9 +4871,8 @@ function MGHromsHistory::VectorGet, var, $
          if my_count[0] eq 0 then my_count[0] = dim[0]-my_offset[0]
          if my_count[1] eq 0 then my_count[1] = dim[1]-my_offset[1]
 
-         ;; Vector data will be calculated only on the rho grid interior points
-         ;; but the data will be padded as necessary with NaNs to occupy the
-         ;; full rho grid.
+         ;; Vector data are calculated only on the rho grid interior points but
+         ;; are padded as necessary with NaNs to occupy the full rho grid.
 
          pad_west = my_offset[0] lt 1
          pad_east = (my_offset[0]+my_count[0]-1) gt (dim[0]-2)

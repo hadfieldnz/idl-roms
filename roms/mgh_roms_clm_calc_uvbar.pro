@@ -35,6 +35,9 @@
 ;     Corrected a latent bug in setting dimensions of ubar and vbar: the bug
 ;     (using dim instead of dim[0:1]) is latent because the array dimensions
 ;     are forced to 2D by the subraction of a 2D expression.
+;   Mark Hadfield, 2017-07:
+;     Added a missing_value attribute for packed data, for the benefit of applications
+;     that do not respect valid_range.
 ;-
 pro mgh_roms_clm_calc_uvbar, file_clm, $
      PACK_DATA=pack_data, TIME_NAME=time_name
@@ -110,6 +113,7 @@ pro mgh_roms_clm_calc_uvbar, file_clm, $
     oclm->attadd, 'ubar', 'add_offset', scale[0]
     oclm->attadd, 'ubar', 'scale_factor', scale[1]
     oclm->attadd, 'ubar', 'valid_range', pack_range
+    oclm->attadd, 'ubar', 'missing_value', pack_range[0]-1S
   endif else begin
     oclm->VarAdd, 'ubar', ['xi_u','eta_u',time_name], /FLOAT
     oclm->attadd, 'ubar', 'valid_range', uv_range
@@ -122,6 +126,7 @@ pro mgh_roms_clm_calc_uvbar, file_clm, $
     oclm->attadd, 'vbar', 'add_offset', scale[0]
     oclm->attadd, 'vbar', 'scale_factor', scale[1]
     oclm->attadd, 'vbar', 'valid_range', pack_range
+    oclm->attadd, 'vbar', 'missing_value', pack_range[0]-1S
   endif else begin
     oclm->VarAdd, 'vbar', ['xi_v','eta_v',time_name], /FLOAT
     oclm->attadd, 'vbar', 'valid_range', uv_range

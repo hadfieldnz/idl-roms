@@ -16,6 +16,9 @@
 ; MODIFICATION HISTORY:
 ;   Mark Hadfield, 2013-10:
 ;     Written.
+;   Mark Hadfield, 2017-07:
+;     Added a missing_value attribute for packed data, for the benefit of applications
+;     that do not respect valid_range.
 ;-
 pro mgh_roms_bry_calc_uvbar, file_bry, $
      PACK_DATA=pack_data, TIME_NAME=time_name
@@ -124,6 +127,7 @@ pro mgh_roms_bry_calc_uvbar, file_bry, $
         obry->AttAdd, var_ubar, 'add_offset', uv_scale[0]
         obry->AttAdd, var_ubar, 'scale_factor', uv_scale[1]
         obry->AttAdd, var_ubar, 'valid_range', pack_range
+        obry->AttAdd, var_ubar, 'missing_value', pack_range[0]-1S
       endif else begin
         obry->VarAdd, var_ubar, [dim_u,time_name], /FLOAT
         obry->AttAdd, var_ubar, 'valid_range', uv_range
@@ -136,6 +140,7 @@ pro mgh_roms_bry_calc_uvbar, file_bry, $
         obry->AttAdd, var_vbar, 'add_offset', uv_scale[0]
         obry->AttAdd, var_vbar, 'scale_factor', uv_scale[1]
         obry->AttAdd, var_vbar, 'valid_range', pack_range
+        obry->AttAdd, var_vbar, 'missing_value', pack_range[0]-1S
       endif else begin
         obry->VarAdd, var_vbar, [dim_v,time_name], /FLOAT
         obry->AttAdd, var_vbar, 'valid_range', uv_range

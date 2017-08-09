@@ -28,6 +28,9 @@
 ;     - Now reads the necessary grid data from the boundary files.
 ;   Mark Hadfield, 2015-10:
 ;     - Reformatted.
+;   Mark Hadfield, 2017-07:
+;     Added a missing_value attribute for packed data, for the benefit of applications
+;     that do not respect valid_range.
 ;-
 pro mgh_roms_bry_load_roms_regrid_var2d_fill, values, TRIANGLES=triangles
 
@@ -338,6 +341,7 @@ pro mgh_roms_bry_load_roms_regrid, file_bry, history, $
          obry->AttAdd, var, 'add_offset', zeta_scale[0]
          obry->AttAdd, var, 'scale_factor', zeta_scale[1]
          obry->AttAdd, var, 'valid_range', pack_range
+         obry->AttAdd, var, 'missing_value', pack_range[0]-1S
       endif else begin
          obry->VarAdd, var, [hdim,time_name], /FLOAT
          obry->AttAdd, var, 'valid_range', zeta_range
