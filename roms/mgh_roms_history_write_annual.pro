@@ -44,7 +44,7 @@ function mgh_roms_history_write_annual_cname, var, i_coeff
    ;; Generate variable names appropriate for the coefficients
    ;; as implied by MGH_FIT_ANNUAL. Note that var can be a vector.
 
-   case 1B of
+   case !true of
       i_coeff eq 0: begin
          return, var+'_mean'
       end
