@@ -60,6 +60,8 @@
 ; MODIFICATION HISTORY:
 ;   Mark Hadfield, 2016-09:
 ;     Written.
+;   Mark Hadfield, 2017-09:
+;     Fixed bug: the function destroyed its ohis object.
 ;-
 function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
      INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, VERTX=vertx, VERTY=verty, TYPE=type, $
@@ -194,8 +196,6 @@ function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
    for r=rr0,rr1 do begin
       tport[*,r-rr0] = ohis->GetTransportXslice(GRID=grid, RECORD=r, VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta)
    endfor
-
-   obj_destroy, ohis
 
    result = {time: time, tport: tport}
 

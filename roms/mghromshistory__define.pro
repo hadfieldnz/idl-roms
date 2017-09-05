@@ -45,7 +45,7 @@
 ;   with a particular variable. So in constructing an Hslice or Cslice
 ;   one must specify the associated variable (or the variable dimensions). The
 ;
-;   Pslices are defined in relative to the PSI grid and Xslices are defined in
+;   Pslices are defined relative to the PSI grid and Xslices are defined in
 ;   physical space, so no associated variable is required.
 ;
 ;   P-slices can be thought of as generalisations of the slice geometry implied
