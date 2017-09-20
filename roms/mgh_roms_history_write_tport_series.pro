@@ -109,7 +109,7 @@ pro mgh_roms_history_write_tport_series, history, section, file_out, $
 
    ;; Set up other variables
 
-   oout->VarAdd, 'name', ['section'], /STRING
+   oout->VarAdd, 'section', ['section'], /STRING
    oout->VarAdd, 'lon', ['vertex','section']
    oout->VarAdd, 'lat', ['vertex','section']
 
@@ -118,7 +118,7 @@ pro mgh_roms_history_write_tport_series, history, section, file_out, $
    ;; Write section data
 
    foreach sec,section,i_sec do begin
-      oout->VarPut, 'name', sec.name, OFFSET=[i_sec], COUNT=[1]
+      oout->VarPut, 'section', sec.name, OFFSET=[i_sec], COUNT=[1]
       oout->VarPut, 'lon', sec.lon, OFFSET=[0,i_sec], COUNT=[2,1]
       oout->VarPut, 'lat', sec.lat, OFFSET=[0,i_sec], COUNT=[2,1]
    endforeach
