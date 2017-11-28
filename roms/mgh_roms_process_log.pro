@@ -130,7 +130,11 @@ function mgh_roms_process_log, text
                result.prm.dstart = double(s[0])
             if strmatch(s[1], 'time_ref', /FOLD_CASE) then begin
                tt = long(s[0])
-               result.prm.time_ref = mgh_dt_julday(YEAR=tt/10000, MONTH=(tt/100) mod 100, DAY=tt mod 100)
+               if tt gt 0 then begin
+                  result.prm.time_ref = mgh_dt_julday(YEAR=tt/10000, MONTH=(tt/100) mod 100, DAY=tt mod 100)
+               endif else begin
+                  result.prm.time_ref = 0
+               endelse
             endif
             i_line++
             continue
