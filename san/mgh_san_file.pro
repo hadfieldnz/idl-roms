@@ -35,7 +35,7 @@
 ;     Subdirectories relative to the SAN volume.
 ;
 ;   VOLUME (input, optional, string scalar)
-;     The volume label. Default is '/hpcf/working/hadfield'
+;     The volume name. The default is returned by MGH_SAN_DEFAULT.
 ;
 ; RETURN VALUE:
 ;   The function returns the full path name of the file(s).
@@ -93,7 +93,7 @@ function mgh_san_file_mounted, name, $
 
    compile_opt HIDDEN
 
-   if n_elements(volume) eq 0 then volume = '/hpcf/working/hadfield'
+   if n_elements(volume) eq 0 then volume = mgh_san_default()
 
    if n_elements(mirror) eq 0 then begin
       msv = (!mgh_san)[volume]
@@ -192,7 +192,7 @@ function mgh_san_file_ssh, name, $
 
    compile_opt HIDDEN
 
-   if n_elements(volume) eq 0 then volume = '/hpcf/working/hadfield'
+   if n_elements(volume) eq 0 then volume = !MGH_SAN_DEFAULT
 
    if n_elements(mirror) eq 0 then mirror = 1B
 
@@ -287,7 +287,7 @@ function mgh_san_file, name, VOLUME=volume, _REF_EXTRA=extra
    if n_elements(name) eq 0 then $
       message, BLOCK='mgh_mblk_motley', NAME='mgh_m_undefvar', 'name'
 
-   if n_elements(volume) eq 0 then volume = '/hpcf/working/hadfield'
+   if n_elements(volume) eq 0 then volume = !MGH_SAN_DEFAULT
 
    vol = (!mgh_san)[volume]
    vol_access = mgh_struct_has_tag(vol, 'access') ? vol.access : 'mounted'

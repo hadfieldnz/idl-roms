@@ -65,7 +65,7 @@ function mgh_san_path, name, $
 
   if n_elements(mirror) eq 0 then mirror = 0B
 
-  if n_elements(volume) eq 0 then volume = '/hpcf/working/hadfield'
+   if n_elements(volume) eq 0 then volume = mgh_san_default()
 
   if ~ isa(volume, 'STRING') then $
     message, BLOCK='mgh_mblk_motley', NAME='mgh_m_wrongtype', 'volume'
