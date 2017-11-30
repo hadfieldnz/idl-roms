@@ -192,7 +192,7 @@ function mgh_san_file_ssh, name, $
 
    compile_opt HIDDEN
 
-   if n_elements(volume) eq 0 then volume = !MGH_SAN_DEFAULT
+   if n_elements(volume) eq 0 then volume = mgh_san_default()
 
    if n_elements(mirror) eq 0 then mirror = 1B
 

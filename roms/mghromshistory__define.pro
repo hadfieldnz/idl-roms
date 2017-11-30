@@ -2639,7 +2639,7 @@ function MGHromsHistory::CtranData, variable, $
 
    ;; Get grid info if necessary
 
-   self->PsliceDefGrid, $
+   self->CsliceDefGrid, $
       ALONG_RANGE=along_range, DIRECTION=direction, $
       GRID=grid, INDEX=index, LONLAT=lonlat
 

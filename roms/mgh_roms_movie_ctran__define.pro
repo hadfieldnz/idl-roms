@@ -180,7 +180,7 @@ function Mgh_Roms_Movie_Ctran::Init, history, variable, index, $
       n_time = ohis->DimInfo(dims.time, /DIMSIZE)
       mgh_resolve_indices, n_time, record_range, record_stride, records
       n_records = n_elements(records)
-      time_var = ohis->TimeVarName(grid.dims.time)
+      time_var = ohis->TimeVarName(dims.time)
       if isa(time_var, /NULL) then message, 'Time variable not found'
    endif else begin
       n_records = 1
