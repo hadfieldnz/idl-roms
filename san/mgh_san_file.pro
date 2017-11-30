@@ -287,7 +287,7 @@ function mgh_san_file, name, VOLUME=volume, _REF_EXTRA=extra
    if n_elements(name) eq 0 then $
       message, BLOCK='mgh_mblk_motley', NAME='mgh_m_undefvar', 'name'
 
-   if n_elements(volume) eq 0 then volume = !MGH_SAN_DEFAULT
+   if n_elements(volume) eq 0 then volume = mgh_san_default()
 
    vol = (!mgh_san)[volume]
    vol_access = mgh_struct_has_tag(vol, 'access') ? vol.access : 'mounted'
