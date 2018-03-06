@@ -17,8 +17,12 @@
 ;       xi (DIRECTION=0) or eta (DIRECTION=1).
 ;
 ;     H-slice
-;       Horizontal, i.e. constant z, constant s, constant sigma or
-;       on a sediment layer.
+;       Horizontal, i.e. constant depth, constant s, constant sigma,
+;       constant height above the bottom, or on a sediment layer.
+;
+;     L-slice
+;       A 2D slice on a rectilinear lon-lat grid as used for forcing
+;       data.
 ;
 ;     P-slice
 ;       A vertical slice along the grid's normal velocity surfaces,
@@ -1612,7 +1616,7 @@ function MGHromsHistory::HasVar, var
    compile_opt STRICTARRSUBS
    compile_opt LOGICAL_PREDICATE
 
-   case 1B of
+   case !true of
 
       isa(var, 'STRING') && strmatch(var, 'abs(*,*)'): begin
          pp = stregex(var, '(^abs\()(.+)(,)(.+)(\))', LENGTH=ll, /SUBEXPR)
@@ -2307,6 +2311,120 @@ function MGHromsHistory::HsliceMean, var, $
   endif
 
   return, result
+
+end
+
+; ** L-slice methods *******************************************
+;
+; MGHromsHistory::LsliceData
+;
+function MGHromsHistory::LsliceData, var, $
+   GRID=grid, I_RANGE=i_range, J_RANGE=j_range, RECORD=record
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   ;; Check for problems with inputs
+
+   if n_elements(var) ne 1 then $
+      message, 'The name of a variable must be supplied'
+
+   if ~ (isa(var, 'STRING') || isa(var, 'STRUCT'))  then $
+      message, 'A variable identifier must be supplied'
+
+   ;; Determine the dimensions associated with the variable
+
+   dims = self->VarDims(var)
+
+   if ~ array_equal(dims.horizontal, ['lon','lat']) then $
+      message, 'Thne variable must have lon & lat horizontal dimensions'
+
+   ;; If no grid information is supplied, then get it. Otherwise check
+   ;; grid is consistent with the current variable name & function
+   ;; arguments.
+
+   if n_elements(grid) eq 0 then $
+      grid = self->LsliceGrid(I_RANGE=i_range, J_RANGE=j_range)
+
+   ;; Check consistency of function arguments with variable dimensions
+
+   if dims.time then begin
+      if n_elements(record) eq 0 then record = 0
+      if record lt 0 then $
+         record = self->DimInfo(dims.time, /DIMSIZE) + record
+   endif else begin
+      if n_elements(record) gt 0 then begin
+         message, 'The RECORD keyword is not required or allowed when ' + $
+            'the variable '+var+' has no time dimension'
+      endif
+   endelse
+
+   ;; Abbreviations for i and j ranges
+
+   ira0 = grid.i_range[0]
+   ira1 = grid.i_range[1]
+   iran = ira1-ira0+1
+   jra0 = grid.j_range[0]
+   jra1 = grid.j_range[1]
+   jran = jra1-jra0+1
+
+   ;; Read & unpack variable
+
+   result = self->VarGet(var, OFFSET=[ira0,jra0,record], COUNT=[iran,jran,1], /AUTOSCALE)
+
+   return, result
+
+end
+
+; MGHromsHistory::LsliceGrid
+;
+function MGHromsHistory::LsliceGrid, $
+   I_RANGE=i_range, J_RANGE=j_range
+
+   compile_opt DEFINT32
+   compile_opt STRICTARR
+   compile_opt STRICTARRSUBS
+   compile_opt LOGICAL_PREDICATE
+
+   ;; Get dimensions of the lon-lat grid
+
+   dim = [self->DimInfo('lon', /DIMSIZE),self->DimInfo('lat', /DIMSIZE)]
+
+   ;; Establish horizontal range. Default is to retrieve all data.
+
+   if n_elements(i_range) eq 0 then i_range = [0,dim[0]-1]
+   if n_elements(j_range) eq 0 then j_range = [0,dim[1]-1]
+
+   ;; Interpret negative values in I_RANGE and J_RANGE as offsets
+   ;; from the end of the grid.
+
+   if i_range[0] lt 0 then i_range[0] += dim[0]
+   if i_range[1] lt 0 then i_range[1] += dim[0]
+   if j_range[0] lt 0 then j_range[0] += dim[1]
+   if j_range[1] lt 0 then j_range[1] += dim[1]
+
+   ;; Calculate parameters for retrieving & processing horizontal grid
+   ;; data, which are defined on rho points.
+
+   offset = [i_range[0],j_range[0]]
+   count = [i_range[1]-i_range[0]+1,j_range[1]-j_range[0]+1]
+
+   ;; Retrieve & interpolate horizontal position
+
+   lon = self->VarGet('lon', OFFSET=offset[0], COUNT=count[0])
+   lat = self->VarGet('lat', OFFSET=offset[1], COUNT=count[1])
+
+   result = dictionary()
+
+   result.dim = dim
+   result.i_range = i_range
+   result.j_range = j_range
+   result.lon = lon
+   result.lat = lat
+
+   return, result->ToStruct(/RECURSIVE, /NO_COPY)
 
 end
 
@@ -4062,16 +4180,16 @@ function MGHromsHistory::VarDims, var
    ;; Load variable dimensions into output
 
    for d=0,n_elements(dim)-1 do begin
-      if strmatch(dim[d], 'xi_*', /FOLD_CASE) then $
-           result.horizontal[0] = dim[d]
-      if strmatch(dim[d], 'eta_*', /FOLD_CASE) then $
-           result.horizontal[1] = dim[d]
-      if strmatch(dim[d], '*time*', /FOLD_CASE) then $
-           result.time = dim[d]
-      if strmatch(dim[d], 's_*', /FOLD_CASE) then $
-           result.vertical = dim[d]
-      if strmatch(dim[d], '*bed', /FOLD_CASE) then $
-           result.bed = dim[d]
+      if strmatch(dim[d], 'xi_*') || strmatch(dim[d], 'lon') then $
+         result.horizontal[0] = dim[d]
+      if strmatch(dim[d], 'eta_*') || strmatch(dim[d], 'lat') then $
+         result.horizontal[1] = dim[d]
+      if strmatch(dim[d], '*time*') then $
+         result.time = dim[d]
+      if strmatch(dim[d], 's_*') then $
+         result.vertical = dim[d]
+      if strmatch(dim[d], '*bed') then $
+         result.bed = dim[d]
    endfor
 
    return, result
@@ -4090,7 +4208,7 @@ function MGHromsHistory::VarDimNames, var, COUNT=count
    if n_elements(var) eq 0 then $
         message, BLOCK='MGH_MBLK_MOTLEY', NAME='MGH_M_UNDEFVAR', var
 
-   case 1B of
+   case !true of
 
       isa(var, 'STRING') && (var eq 'psi'): begin
          result = self->VarDimNames('psi(ubar,vbar,zeta)', COUNT=count)
