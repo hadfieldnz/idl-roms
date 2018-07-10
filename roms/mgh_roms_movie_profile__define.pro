@@ -259,7 +259,7 @@ function Mgh_Roms_Movie_Profile::Init, file, position, $
       n_time = ofile->DimInfo(dims.time, /DIMSIZE)
       mgh_resolve_indices, n_time, record_range, record_stride, records
       n_records = n_elements(records)
-      time_var = ofile->TimeVarName(grid.dims.time)
+      time_var = ofile->TimeVarName(dims.time)
       if isa(time_var, /NULL) then message, 'Time variable not found'
    endif else begin
       n_records = 1

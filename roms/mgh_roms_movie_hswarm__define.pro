@@ -245,7 +245,6 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
       time_units = {scale: 1}
    endelse
 
-
    ;; Get number of records in float file and resolve record-selection
    ;; arguments
 
@@ -419,24 +418,29 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
 
    endif
 
-   ;; Create a symbol to represent each float. Make the symbol
-   ;; reasonably simple to avoid slowing the animation.
+   ;; Create symbols to represent each float. Make them reasonably simple to
+   ;; avoid slowing the animation. Make two sets: red, to represent floats
+   ;; in the water column and blue, to represent floats on the bottom (Zgrid eq 0).
 
    if n_elements(symbol_properties) gt 0 then begin
      n_sym = n_elements(symbol_properties)
-     osym = objarr(n_sym)
+     osym_free = objarr(n_sym)
+     osym_stuck = objarr(n_sym)
      for i=0,n_sym-1 do begin
-       osym[i] = ograph->NewSymbol(0, N_VERTICES=6, COLOR=mgh_color('red'), NORM_SIZE=0.01, _STRICT_EXTRA=symbol_properties[i])
+       osym_free[i] = ograph->NewSymbol(0, N_VERTICES=6, COLOR=mgh_color('red'), NORM_SIZE=0.01, _STRICT_EXTRA=symbol_properties[i])
+       osym_stuck[i] = ograph->NewSymbol(0, N_VERTICES=6, COLOR=mgh_color('dark green'), NORM_SIZE=0.01, _STRICT_EXTRA=symbol_properties[i])
      endfor
    endif else begin
-     osym = ograph->NewSymbol(0, N_VERTICES=6, COLOR=mgh_color('red'), NORM_SIZE=0.01)
+     osym_free = ograph->NewSymbol(0, N_VERTICES=6, COLOR=mgh_color('red'), NORM_SIZE=0.01)
+     osym_stuck = ograph->NewSymbol(0, N_VERTICES=6, COLOR=mgh_color('dark green'), NORM_SIZE=0.01)
    endelse
 
-   ;; Add a title and an invisible polyline to be animated
+   ;; Add a title and two invisible polylines to be animated
 
    ograph->NewTitle, '', RESULT=otitle
 
-   ograph->NewAtom, 'IDLgrPlot', LINESTYLE=6, SYMBOL=osym, NAME='Floats', RESULT=oplt
+   ograph->NewAtom, 'IDLgrPlot', LINESTYLE=6, SYMBOL=osym_free, NAME='Free floats', RESULT=oplt_free
+   ograph->NewAtom, 'IDLgrPlot', LINESTYLE=6, SYMBOL=osym_stuck, NAME='Stuck floats', RESULT=oplt_stuck
 
    ;; Create an animator window to display and manage the movie.
 
@@ -448,7 +452,7 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
    ;; Step through times in the netCDF file, generating new frames &
    ;; plotting data
 
-   oframe = objarr(2)
+   oframe = objarr(3)
 
    for r=0,n_elements(records)-1 do begin
 
@@ -480,7 +484,7 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
 
       x = replicate(!values.f_nan, n_elements(xgrid))
       y = replicate(!values.f_nan, n_elements(xgrid))
-
+      
       if n_bound gt 0 then begin
          x[l_bound] = $
               interpolate(x_rho, xgrid[l_bound]-xra0, ygrid[l_bound]-era0)
@@ -488,19 +492,43 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
               interpolate(y_rho, xgrid[l_bound]-xra0, ygrid[l_bound]-era0)
       endif
 
+      ;; Determine which floats are sitting on the bottom
+
+      stuck = oflt->VarGetFloat('Zgrid', FLOATS=floats, RECORDS=rec) eq 0
+
+      ;; Optionally select for floats in a specified depth range. This check
+      ;; is independent of the "stuck" check.
+
       if n_elements(depth_select) gt 0 then begin
          z = oflt->VarGetFloat('depth', FLOATS=floats, RECORDS=rec, AUTOSCALE=0)
          l_good = where(z ge depth_select[0] and z le depth_select[1], n_good)
          if n_good gt 0 then begin
             x = x[l_good]
             y = y[l_good]
+            stuck = stuck[l_good]
          endif else begin
             x = [!values.f_nan]
             y = [!values.f_nan]
+            stuck = [!values.f_nan]
          endelse
       endif
+      
+      ;; Plot stuck and free floats separately
 
-      oframe[0] = obj_new('MGH_Command', OBJECT=oplt, 'SetProperty', DATAX=x, DATAY=y)
+      l_stuck = where(stuck, n_stuck, $
+         COMPLEMENT=l_free, NCOMPLEMENT=n_free)
+
+      if n_free gt 0 then begin
+         oframe[0] = obj_new('MGH_Command', OBJECT=oplt_free, 'SetProperty', DATAX=x[l_free], DATAY=y[l_free])
+      endif else begin
+         oframe[0] = obj_new('MGH_Command', OBJECT=oplt_free, 'SetProperty', DATAX=[!values.f_nan], DATAY=[!values.f_nan])
+      endelse
+
+      if n_stuck gt 0 then begin
+         oframe[1] = obj_new('MGH_Command', OBJECT=oplt_stuck, 'SetProperty', DATAX=x[l_stuck], DATAY=y[l_stuck])
+      endif else begin
+         oframe[1] = obj_new('MGH_Command', OBJECT=oplt_stuck, 'SetProperty', DATAX=[!values.f_nan], DATAY=[!values.f_nan])
+      endelse
 
       ;; Update title with time or date, if applicable
 
@@ -511,7 +539,7 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
          endcase
          if strlen(title) gt 0 then $
               ttt = string(FORMAT='(%"%s: %s")', title, ttt)
-         oframe[1] = obj_new('MGH_Command', OBJECT=otitle, $
+         oframe[2] = obj_new('MGH_Command', OBJECT=otitle, $
                              'SetProperty', STRINGS=temporary(ttt))
       endif
 

@@ -3,7 +3,7 @@
 ;   MGHromsStation
 ;
 ; PURPOSE:
-;   This class wraps a ROMS station files. Each MGHromsStation object
+;   This class wraps a series of ROMS station files. Each MGHromsStation object
 ;   has associated with it an optional ROMS grid file, which can be
 ;   searched for grid information if the station files lack it.
 ;
@@ -24,6 +24,8 @@
 ;     - Added support for summed variables (eg. "dye_01+dye_02").
 ;   Mark Hadfield, 2012-04:
 ;     - Begin adding supporting for sediment (the bed dimension).
+;   Mark Hadfield, 2018-04:
+;     - Added derived variables sstr and bstr.
 ;-
 function MGHromsStation::Init, files, GRID_FILE=grid_file, _REF_EXTRA=extra
 
@@ -266,6 +268,14 @@ function MGHromsStation::VarDimNames, var, COUNT=count
         result = self->MGHncSequence::VarDimNames('u', COUNT=count)
       end
 
+      isa(var, 'STRING') && (var eq 'sstr'): begin
+         result = self->MGHncSequence::VarDimNames('sustr', COUNT=count)
+      end
+
+      isa(var, 'STRING') && (var eq 'bstr'): begin
+         result = self->MGHncSequence::VarDimNames('bustr', COUNT=count)
+      end
+
       isa(var, 'STRING') && (var eq 'Sbot'): begin
         result = self->MGHncSequence::VarDimNames('Ubot', COUNT=count)
       end
@@ -379,11 +389,9 @@ function MGHromsStation::VarGet, var, $
 
       isa(var, 'STRING') && (var eq 'spd'): begin
          u = self->MGHncSequence::VarGet('u', AUTOSCALE=autoscale, $
-                                         COUNT=count, OFFSET=offset, $
-                                         _STRICT_EXTRA=_extra)
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
          v = self->MGHncSequence::VarGet('v', AUTOSCALE=autoscale, $
-                                         COUNT=count, OFFSET=offset, $
-                                         _STRICT_EXTRA=_extra)
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
          result = sqrt(temporary(u)^2 + temporary(v)^2)
       end
 
@@ -408,20 +416,33 @@ function MGHromsStation::VarGet, var, $
         return, real_part(uv)
       end
 
+      isa(var, 'STRING') && (var eq 'bstr'): begin
+         bustr = self->MGHncSequence::VarGet('bustr', AUTOSCALE=autoscale, $
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
+         bvstr = self->MGHncSequence::VarGet('bvstr', AUTOSCALE=autoscale, $
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
+         result = sqrt(temporary(bustr)^2 + temporary(bvstr)^2)
+      end
+
+      isa(var, 'STRING') && (var eq 'sstr'): begin
+         sustr = self->MGHncSequence::VarGet('sustr', AUTOSCALE=autoscale, $
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
+         svstr = self->MGHncSequence::VarGet('svstr', AUTOSCALE=autoscale, $
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
+         result = sqrt(temporary(sustr)^2 + temporary(svstr)^2)
+      end
+
       isa(var, 'STRING') && (var eq 'Sbot'): begin
-        ubot = self->MGHncSequence::VarGet('Ubot', AUTOSCALE=autoscale, $
-          COUNT=count, OFFSET=offset, $
-          _STRICT_EXTRA=_extra)
-        vbot = self->MGHncSequence::VarGet('Vbot', AUTOSCALE=autoscale, $
-          COUNT=count, OFFSET=offset, $
-          _STRICT_EXTRA=_extra)
-        result = sqrt(temporary(ubot)^2 + temporary(vbot)^2)
+         ubot = self->MGHncSequence::VarGet('Ubot', AUTOSCALE=autoscale, $
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
+         vbot = self->MGHncSequence::VarGet('Vbot', AUTOSCALE=autoscale, $
+            COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
+         result = sqrt(temporary(ubot)^2 + temporary(vbot)^2)
       end
 
       isa(var, 'STRING') && (var eq 'Dsbl'): begin
-         result = - self->MGHncSequence::VarGet('Hsbl', AUTOSCALE=autoscale, $
-                                                COUNT=count, OFFSET=offset, $
-                                                _STRICT_EXTRA=_extra)
+         result = - self->MGHncSequence::VarGet('Hsbl', $
+            AUTOSCALE=autoscale, COUNT=count, OFFSET=offset, _STRICT_EXTRA=_extra)
       end
 
       isa(var, 'STRING') && (var eq 'Dbbl'): begin

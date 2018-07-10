@@ -42,7 +42,6 @@
 ;     - Added READ_COMMENT keyword.
 ;     - Position and time data now double-precision.
 ;-
-
 function mgh_roms_read_fltin, file, READ_COMMENT=read_comment
 
    compile_opt DEFINT32

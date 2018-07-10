@@ -824,7 +824,7 @@ pro MGH_ROMS_Movie_Cslice::ShowGridPlot
 
    ohis = mgh_obj_clone(self.history_file)
 
-   oplot = obj_new('mgh_roms_plot_grid', ohis, GRAPH_PROPERTIES={scale: 0.7*default_scale}, $
+   oplot = obj_new('mgh_roms_plot_grid', ohis, GRAPH_PROPERTIES={scale: 0.8*default_scale}, $
                    GROUP_LEADER=self.base, VISIBLE=0)
 
    oplot->GetProperty, GRAPHICS_TREE=ograph
