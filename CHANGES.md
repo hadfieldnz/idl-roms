@@ -1,8 +1,15 @@
 # Change log for the IDL-ROMS Library
 
-Mark Hadfield, 2017-07-05
+Mark Hadfield
+
+Motley is a library of IDL code written largely by Mark Hadfield at NIWA. This document describes major and/or widespread changes to the
+routines in the library. For a routine-specific change log, see the individual documentation headers.
 
 Entries are in reverse chronological order (most recent first).
+
+### *2018-08-06*
+
+The library can now be installed with the new IDL Package Manager, to be bundled with IDL 8.7.1. Version 1.0 has been released.
 
 ### *2017-07-05*
 
@@ -16,7 +23,7 @@ Created the subdirectories san and roms and moved routines into them as appropri
 ### *2016-11-01*
 
 Moved some 110 ROMS-related routines from my general NIWA library into MGH-ROMS. There are 88 left behind.
-There’s still quite a lot of work to do removing or resolving dependencies of the MGH-ROMS code on my general library.
+There's still quite a lot of work to do removing or resolving dependencies of the MGH-ROMS code on my general library.
 
 Moved the MGH_SAN routines for generalised remote file access from my general NIWA library into MGH-ROMS.
 
