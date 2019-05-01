@@ -370,42 +370,6 @@ function MGHromsRegrid::TimeVarName, var
 
 end
 
-; MGHromsRegrid::VarDims
-
-function MGHromsRegrid::VarDims, var
-
-   compile_opt DEFINT32
-   compile_opt STRICTARR
-   compile_opt STRICTARRSUBS
-   compile_opt LOGICAL_PREDICATE
-
-   ;; Get dimension names as a string array.
-
-   dim = self->VarDimNames(var)
-
-   ;; Set up the output structure
-
-   result = {horizontal: strarr(2), vertical: '', bed: '', time:''}
-
-   ;; Load variable dimensions into output
-
-   for d=0,n_elements(dim)-1 do begin
-      if strmatch(dim[d], 'xi_*') || strmatch(dim[d], 'lon') then $
-         result.horizontal[0] = dim[d]
-      if strmatch(dim[d], 'eta_*') || strmatch(dim[d], 'lat') then $
-         result.horizontal[1] = dim[d]
-      if strmatch(dim[d], '*time*') then $
-         result.time = dim[d]
-      if strmatch(dim[d], 's_*') then $
-         result.vertical = dim[d]
-      if strmatch(dim[d], '*bed') then $
-         result.bed = dim[d]
-   endfor
-
-   return, result
-
-end
-
 ; MGHromsRegrid::VarDimNames
 ;
 function MGHromsRegrid::VarDimNames, var, COUNT=count

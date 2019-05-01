@@ -4349,6 +4349,7 @@ pro MGHromsHistory::VarInfo, var, $
          datatype = 'FLOAT'
          n_atts = 0
          self->VarInfo, vv[0], $
+            DIM_NAMES=dim_names, DIMENSIONS=dimensions, FILL_VALUE=fill_value, N_DIMS=n_dims
          dim_names[0] = 'xi_rho'
          dim_names[1] = 'eta_rho'
          dimensions[0] = self->MGHncSequence::DimInfo('xi_rho', /DIMSIZE)
