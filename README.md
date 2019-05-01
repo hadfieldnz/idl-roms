@@ -1,5 +1,7 @@
 # The IDL-ROMS Library
 
+Mark Hadfield
+
 ## Synopsis
 
 IDL-ROMS is a library of IDL code written largely by me at NIWA for processing input and output from

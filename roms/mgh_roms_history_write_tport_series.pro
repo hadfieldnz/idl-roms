@@ -37,9 +37,15 @@
 ; MODIFICATION HISTORY:
 ;   Mark Hadfield, 2017-08:
 ;     Written.
+;   Mark Hadfield, 2019-04:
+;     - Fixed bug: the UNPACK keyword should not have been set when
+;       copying the defintions for the ocean_time variable.
+;     - Added VAR_UBAR/VBAR/ZETA keywords, passed to
+;       mgh_roms_series_xslice_tport.
 ;-
 pro mgh_roms_history_write_tport_series, history, section, file_out, $
-     RECALC=recalc, TIME_RANGE=time_range
+     RECALC=recalc, TIME_RANGE=time_range, $
+     VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta
 
    compile_opt DEFINT32
    compile_opt STRICTARR
@@ -77,7 +83,9 @@ pro mgh_roms_history_write_tport_series, history, section, file_out, $
    data = list()
 
    foreach sec,section,i_sec do begin
-      data->Add, mgh_roms_series_xslice_tport(ohis, TYPE='linear', /LONLAT, VERTX=sec.lon, VERTY=sec.lat, TIME_RANGE=time_range, RECALC=recalc)
+      data->Add, mgh_roms_series_xslice_tport(ohis, TYPE='linear', /LONLAT, $
+         VERTX=sec.lon, VERTY=sec.lat, TIME_RANGE=time_range, $
+         VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, RECALC=recalc)
       if i_sec eq 0 then begin
          time = data[0].time
       endif else begin
@@ -105,7 +113,7 @@ pro mgh_roms_history_write_tport_series, history, section, file_out, $
 
    ;; Copy definitions and attributes for the time-coordinate variable
 
-   oout->VarCopy, ohis, 'ocean_time', /DEFINITION, /ATTRIBUTE, /UNPACK
+   oout->VarCopy, ohis, 'ocean_time', /DEFINITION, /ATTRIBUTE
 
    ;; Set up other variables
 

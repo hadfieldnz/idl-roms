@@ -2,10 +2,16 @@
 
 Mark Hadfield
 
-Motley is a library of IDL code written largely by Mark Hadfield at NIWA. This document describes major and/or widespread changes to the
+IDL-ROMS is a library of IDL code written largely by me at NIWA for processing input and output from
+the [ROMS ocean model](https://www.myroms.org/) and its siblings.. This document describes major and/or widespread changes to the
 routines in the library. For a routine-specific change log, see the individual documentation headers.
 
 Entries are in reverse chronological order (most recent first).
+
+### *2019-05-01*
+
+Added a class, MGHromsRegrid, to represent ROMS forcing files with longitude and latitude data, to be regridded
+in ROMS. Moved the Lslice methods (recently added to MGHromsHistory and only partially implemented) to this class.
 
 ### *2018-08-06*
 

@@ -62,6 +62,8 @@
 ;     - Changed the default value of PATTERN for each type to something
 ;       more restrictive (eg. roms_avg_[0-9][0-9][0-9][0-9].nc) to avoid
 ;       unintended inclusions.
+;   Mark Hadfield, 2019-04:
+;     - Added a "regrid" type associated with MGHromsRegrid objects.
 ;-
 function mgh_roms_file, subdirectory, $
      FILE_CLASS=file_class, FILE_RANGE=file_range, $
@@ -122,6 +124,11 @@ function mgh_roms_file, subdirectory, $
       'boundary': begin
          if n_elements(pattern) eq 0 then pattern = 'roms_bry*.nc'
          if n_elements(file_class) eq 0 then file_class = 'MGHncSequence'
+      end
+
+      'regrid': begin
+         if n_elements(pattern) eq 0 then pattern = 'roms_frc_[0-9][0-9][0-9][0-9].nc'
+         if n_elements(file_class) eq 0 then file_class = 'MGHromsRegrid'
       end
 
       'miscellaneous': begin

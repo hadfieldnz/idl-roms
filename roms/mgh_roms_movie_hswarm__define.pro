@@ -484,7 +484,7 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
 
       x = replicate(!values.f_nan, n_elements(xgrid))
       y = replicate(!values.f_nan, n_elements(xgrid))
-      
+
       if n_bound gt 0 then begin
          x[l_bound] = $
               interpolate(x_rho, xgrid[l_bound]-xra0, ygrid[l_bound]-era0)
@@ -512,7 +512,7 @@ function mgh_roms_movie_hswarm::Init, ffile, hfile, $
             stuck = [!values.f_nan]
          endelse
       endif
-      
+
       ;; Plot stuck and free floats separately
 
       l_stuck = where(stuck, n_stuck, $

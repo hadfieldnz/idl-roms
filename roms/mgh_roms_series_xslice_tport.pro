@@ -31,7 +31,7 @@
 ;     Used in setting up piecewise Xslices
 ;
 ;   LONLAT (input, switch)
-;    This keyword specicifies whether the vertext locations (VERTX and VERTY)
+;    This keyword specicifies whether the vertex locations (VERTX and VERTY)
 ;    are defined in (x,y) or (lon,lat). The default is !true if the history
 ;    file has (lon,lat) data and !false otherwise.
 ;
@@ -64,7 +64,8 @@
 ;     Fixed bug: the function destroyed its ohis object.
 ;-
 function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
-     INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, VERTX=vertx, VERTY=verty, TYPE=type, $
+     INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, $
+     VERTX=vertx, VERTY=verty, TYPE=type, $
      RECORD_RANGE=record_range, TIME_RANGE=time_range, $
      VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta
 

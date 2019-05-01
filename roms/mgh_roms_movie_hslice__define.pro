@@ -341,7 +341,7 @@ function mgh_roms_movie_hslice::Init, $
 
    n_frames = long(n_records)/long(record_average)
 
-   ;; Get time units from the history file. Also retrieve the time time series.
+   ;; Get time units from the history file. Also retrieve the time series.
 
    if has_time then begin
       if ohis->HasAtt(time_var, 'units') then begin

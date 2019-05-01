@@ -3,7 +3,7 @@
 ;   MGHromsHistory
 ;
 ; PURPOSE:
-;   This class wraps a series of ROMS history files.
+;   This class wraps a series of ROMS history (or similar) files.
 ;
 ; OBJECT CREATION SEQUENCE
 ;   obj = obj_new('MGHromsHistory', Files)
@@ -19,10 +19,6 @@
 ;     H-slice
 ;       Horizontal, i.e. constant depth, constant s, constant sigma,
 ;       constant height above the bottom, or on a sediment layer.
-;
-;     L-slice
-;       A 2D slice on a rectilinear lon-lat grid as used for forcing
-;       data.
 ;
 ;     P-slice
 ;       A vertical slice along the grid's normal velocity surfaces,
@@ -60,40 +56,6 @@
 ; PATCHES:
 ;   A Patch is a polygonal area over which integrals (and maybe other statistics)
 ;   can be calculated. Its vertices are defined in physical space.
-;
-; METHODS:
-;   In addition to the generic netCDF methods inherited from
-;   MGHncSequence:
-;
-;     CsliceData
-;       Returns data (2D array) for a specified variable on a C-slice.
-;
-;     CsliceGrid
-;       Returns a structure describing a specified C-slice.
-;
-;     CtranData
-;       Returns data (1D array) for a specified variable on a
-;       C-transect.
-;
-;     DimRho
-;       Return the dimensions of the rho grid in an array.
-;
-;     HsliceData
-;       Returns data for a specified variable on a set of
-;       H-slices as a 2D or 3D array.
-;
-;     HsliceGrid
-;       Returns a structure describing a specified set of
-;       H-slices.
-;
-;     Grid
-;       Returns a structure describing a specified X-slice.
-;
-;     VarDims
-;       Return a list of the dimension names associated with a
-;       variable in the form of a structure with tags "horizontal",
-;       "vertical", "bed" and "time" (cf. method VarDimNames, which
-;       returns the the dimension names in an array).
 ;
 ; MODIFICATION HISTORY:
 ;   Mark Hadfield, 1999-08:
@@ -180,6 +142,10 @@
 ;       different keywords.
 ;   Mark Hadfield, 2016-09:
 ;     - All occurrences of the constant i (unit imaginary number) ahs been replaced with !const.i
+;   Mark Hadfield, 2019-04:
+;     - Deleted the Lslice methods, which were introduced some time ago and only
+;       partially implemented and documented. These are now supported by the new
+;       MGHromsRegrid class.
 ;-
 ;+
 ; METHOD NAME:
@@ -2314,120 +2280,6 @@ function MGHromsHistory::HsliceMean, var, $
 
 end
 
-; ** L-slice methods *******************************************
-;
-; MGHromsHistory::LsliceData
-;
-function MGHromsHistory::LsliceData, var, $
-   GRID=grid, I_RANGE=i_range, J_RANGE=j_range, RECORD=record
-
-   compile_opt DEFINT32
-   compile_opt STRICTARR
-   compile_opt STRICTARRSUBS
-   compile_opt LOGICAL_PREDICATE
-
-   ;; Check for problems with inputs
-
-   if n_elements(var) ne 1 then $
-      message, 'The name of a variable must be supplied'
-
-   if ~ (isa(var, 'STRING') || isa(var, 'STRUCT'))  then $
-      message, 'A variable identifier must be supplied'
-
-   ;; Determine the dimensions associated with the variable
-
-   dims = self->VarDims(var)
-
-   if ~ array_equal(dims.horizontal, ['lon','lat']) then $
-      message, 'Thne variable must have lon & lat horizontal dimensions'
-
-   ;; If no grid information is supplied, then get it. Otherwise check
-   ;; grid is consistent with the current variable name & function
-   ;; arguments.
-
-   if n_elements(grid) eq 0 then $
-      grid = self->LsliceGrid(I_RANGE=i_range, J_RANGE=j_range)
-
-   ;; Check consistency of function arguments with variable dimensions
-
-   if dims.time then begin
-      if n_elements(record) eq 0 then record = 0
-      if record lt 0 then $
-         record = self->DimInfo(dims.time, /DIMSIZE) + record
-   endif else begin
-      if n_elements(record) gt 0 then begin
-         message, 'The RECORD keyword is not required or allowed when ' + $
-            'the variable '+var+' has no time dimension'
-      endif
-   endelse
-
-   ;; Abbreviations for i and j ranges
-
-   ira0 = grid.i_range[0]
-   ira1 = grid.i_range[1]
-   iran = ira1-ira0+1
-   jra0 = grid.j_range[0]
-   jra1 = grid.j_range[1]
-   jran = jra1-jra0+1
-
-   ;; Read & unpack variable
-
-   result = self->VarGet(var, OFFSET=[ira0,jra0,record], COUNT=[iran,jran,1], /AUTOSCALE)
-
-   return, result
-
-end
-
-; MGHromsHistory::LsliceGrid
-;
-function MGHromsHistory::LsliceGrid, $
-   I_RANGE=i_range, J_RANGE=j_range
-
-   compile_opt DEFINT32
-   compile_opt STRICTARR
-   compile_opt STRICTARRSUBS
-   compile_opt LOGICAL_PREDICATE
-
-   ;; Get dimensions of the lon-lat grid
-
-   dim = [self->DimInfo('lon', /DIMSIZE),self->DimInfo('lat', /DIMSIZE)]
-
-   ;; Establish horizontal range. Default is to retrieve all data.
-
-   if n_elements(i_range) eq 0 then i_range = [0,dim[0]-1]
-   if n_elements(j_range) eq 0 then j_range = [0,dim[1]-1]
-
-   ;; Interpret negative values in I_RANGE and J_RANGE as offsets
-   ;; from the end of the grid.
-
-   if i_range[0] lt 0 then i_range[0] += dim[0]
-   if i_range[1] lt 0 then i_range[1] += dim[0]
-   if j_range[0] lt 0 then j_range[0] += dim[1]
-   if j_range[1] lt 0 then j_range[1] += dim[1]
-
-   ;; Calculate parameters for retrieving & processing horizontal grid
-   ;; data, which are defined on rho points.
-
-   offset = [i_range[0],j_range[0]]
-   count = [i_range[1]-i_range[0]+1,j_range[1]-j_range[0]+1]
-
-   ;; Retrieve & interpolate horizontal position
-
-   lon = self->VarGet('lon', OFFSET=offset[0], COUNT=count[0])
-   lat = self->VarGet('lat', OFFSET=offset[1], COUNT=count[1])
-
-   result = dictionary()
-
-   result.dim = dim
-   result.i_range = i_range
-   result.j_range = j_range
-   result.lon = lon
-   result.lat = lat
-
-   return, result->ToStruct(/RECURSIVE, /NO_COPY)
-
-end
-
 ; MGHromsHistory::LocateXY
 ;
 function MGHromsHistory::LocateXY, x, y, LONLAT=lonlat
@@ -2730,262 +2582,6 @@ function MGHromsHistory::PsliceZ, variable, $
       VTRANSFORM=scoord.vtransform)
 
    return, transpose(result)
-
-end
-
-; MGHromsHistory::CtranData
-;
-function MGHromsHistory::CtranData, variable, $
-   ALONG_RANGE=along_range, DIRECTION=direction, $
-   DEPTHS=depths, LEVELS=levels, SIGMAS=sigmas, $
-   GRID=grid, INDEX=index, LONLAT=lonlat, RECORD=record, $
-   USE_BATH=use_bath, USE_ZETA=use_zeta
-
-   compile_opt DEFINT32
-   compile_opt STRICTARR
-   compile_opt STRICTARRSUBS
-   compile_opt LOGICAL_PREDICATE
-
-   ;; Set defaults
-
-   if n_elements(use_bath) eq 0 then use_bath = 0
-   if n_elements(use_zeta) eq 0 then use_zeta = 0
-
-   ;; Get dimensions of variable
-
-   dims = self->VarDims(variable)
-
-   ;; Get grid info if necessary
-
-   self->CsliceDefGrid, $
-      ALONG_RANGE=along_range, DIRECTION=direction, $
-      GRID=grid, INDEX=index, LONLAT=lonlat
-
-   ;; Some handy switches
-
-   has_vert = strlen(dims.vertical) gt 0
-   has_time = strlen(dims.time) gt 0
-
-   ;; Check consistency of function arguments with variable dimensions.
-
-   if has_vert then begin
-      n_key = (n_elements(depths) gt 0) + (n_elements(levels) gt 0) + $
-         (n_elements(sigmas) gt 0)
-      if n_key gt 1 then $
-         message, 'The DEPTHS, LEVELS & SIGMAS keywords cannot be used together'
-   endif else begin
-      if n_elements(depths) gt 0 then begin
-         message, 'The DEPTHS keyword is not required or allowed when ' + $
-            'the variable '+variable+' has no vertical dimension'
-      endif
-      if n_elements(levels) gt 0 then begin
-         message, 'The LEVELS keyword is not required or allowed when ' + $
-            'the variable '+variable+' has no vertical dimension'
-      endif
-      if n_elements(levels) gt 0 then begin
-         message, 'The SIGMAS keyword is not required or allowed when ' + $
-            'the variable '+variable+' has no vertical dimension'
-      endif
-   endelse
-
-   if has_time then begin
-      if n_elements(record) eq 0 then record = 0
-      if record lt 0 then $
-         record = self->DimInfo(grid.dims.time,/DIMSIZE) + record
-   endif else begin
-      if n_elements(record) gt 0 then begin
-         message, 'The RECORD keyword is not required or allowed when ' + $
-            'the variable '+variable+' has no time dimension'
-      endif
-      if use_bath then begin
-         message, 'The USE_BATH option may not be activated when ' + $
-            'the variable '+variable+' has no time dimension'
-      endif
-      if use_zeta then begin
-         message, 'The USE_ZETA option may not be activated when ' + $
-            'the variable '+variable+' has no time dimension'
-      endif
-   endelse
-
-   ;; If variable has a vertical dimension, get s-coordinate data
-
-   if has_vert then scoord = self->GetScoord(dims.vertical)
-
-   ;; Establish levels/depths at which data are required
-
-   get_depths = n_elements(depths) gt 0
-   get_sigmas = n_elements(sigmas) gt 0
-   get_levels = n_elements(levels) gt 0
-
-   case 1B of
-      get_depths: n_tran = n_elements(depths)
-      get_levels: n_tran = n_elements(levels)
-      get_sigmas: n_tran = n_elements(sigmas)
-      else: begin
-         n_tran = 1
-         if has_vert then levels = scoord.n_s-1
-      endelse
-   endcase
-
-   ;; More handy constants
-
-   ara0 = grid.along_range[0]
-   ara1 = grid.along_range[1]
-   aran = ara1-ara0+1
-
-   ;; Create array to hold result.
-
-   result = fltarr(aran, n_tran)
-
-   ;; ...horizontal dimension
-
-   case grid.direction of
-      0: begin
-         offset_h = [ara0,grid.index]
-         count_h = [aran,1]
-      end
-      1: begin
-         offset_h = [grid.index,ara0]
-         count_h = [1,aran]
-      end
-   endcase
-
-   delta_h = [0,0]
-
-   case strjoin(dims.horizontal, ' ') of
-      'xi_rho eta_rho':
-      'xi_u eta_u': begin
-         offset_h[0] -= 1
-         count_h[0] += 1
-         delta_h[0] -= 1
-      end
-      'xi_v eta_v': begin
-         offset_h[1] -= 1
-         count_h[1] += 1
-         delta_h[1] -= 1
-      end
-      'xi_psi eta_psi': begin
-         offset_h -= 1
-         count_h += 1
-         delta_h -= 1
-      end
-   endcase
-
-   ;; Read variable
-
-   if get_depths || get_sigmas then begin
-
-      ;; The DEPTHS or SIGMAS keyword has been specified, so get slices
-      ;; and interpolate vertically
-
-      ;; Build up offset & count vectors for VarGet
-
-      offset = [offset_h,0]
-      count = [count_h,0]
-      delta = [delta_h,0]
-
-      if has_time then begin
-         offset = [offset,record]
-         count = [count,1]
-         delta = [delta,0]
-      endif
-
-      ;; Get a slice
-
-      vslice = self->VarGet(variable, OFFSET=offset, COUNT=count)
-
-      vslice = reform(mgh_stagger(vslice, DELTA=delta))
-
-      ;; Get zeta & bathymetry @ variable location
-
-      if keyword_set(use_bath) then begin
-         message, "Sorry I don't do USE_bath=1 yet!"
-      endif else begin
-         bath = grid.h
-      endelse
-
-      if keyword_set(use_zeta) then begin
-         message, "Sorry I don't do USE_ZETA=1 yet!"
-      endif else begin
-         zeta = fltarr(aran)
-      endelse
-
-      ;; Loop horizontally thru domain interpolating to all depths
-
-      cs = mgh_roms_s_to_cs(grid.s, $
-         THETA_S=grid.theta_s, THETA_B=grid.theta_b, $
-         VSTRETCH=grid.vstretch)
-
-      for i=0,aran-1 do begin
-         zz = mgh_roms_s_to_z(grid.s, bath[i], $
-            ZETA=zeta[i], HC=grid.hc, CS=cs, $
-            VTRANSFORM=grid.vtransform)
-         if get_sigmas then begin
-            zs = sigmas*zeta[i]-(1-sigmas)*bath[i]
-            result[i,*] = interpol(vslice[i,*], zz, zs, /QUADRATIC)
-         endif else begin
-            result[i,*] = interpol(vslice[i,*], zz, -float(depths), /QUADRATIC)
-            l_bottom = where(depths gt bath[i], n_bottom)
-            if n_bottom gt 0 then result[i,l_bottom] = !values.f_nan
-         endelse
-      endfor
-
-   endif else begin
-
-      ;; DEPTHS & SIGMAS not specified, so no vertical interpolation
-      ;; necessary. Get data for each level separately
-
-      for k=0,n_tran-1 do begin
-
-         ;; Build up offset & count vectors for VarGet
-
-         offset = offset_h
-         count = count_h
-         delta = delta_h
-
-         if has_vert then begin
-            offset = [offset,levels[k]]
-            count = [count,1]
-            delta = [delta,0]
-         endif
-
-         if has_time gt 0 then begin
-            offset = [offset,record]
-            count = [count,1]
-            delta = [delta,0]
-         endif
-
-         ;; Get data and load into result array.
-
-         data = self->VarGet(variable, OFFSET=offset, COUNT=count)
-
-         data = reform(mgh_stagger(data, DELTA=delta))
-
-         result[*,k] = data
-
-      endfor
-
-   endelse
-
-   ;; Reset masked values. This is commented out for now because
-   ;; there are some tricky issues to do with staggered grids
-   ;; and multi-slice averaging that I haven't sorted out yet.
-
-   ;  if size(grid.mask, /N_DIMENSIONS) gt 0 then begin
-   ;    n_s = grid.average ? 1 : n_slice
-   ;    for s=0,n_s-1 do begin
-   ;      ww = where(grid.mask[*,s] lt 0.01, count)
-   ;      if count gt 0 then begin
-   ;        for k=0,n_tran-1 do begin
-   ;          r = result[*,k,s]
-   ;          r[ww] = mask_value
-   ;          result[0,k,s] = r
-   ;        endfor
-   ;      endif
-   ;    endfor
-   ;  endif
-
-   return, result
 
 end
 
@@ -4180,9 +3776,9 @@ function MGHromsHistory::VarDims, var
    ;; Load variable dimensions into output
 
    for d=0,n_elements(dim)-1 do begin
-      if strmatch(dim[d], 'xi_*') || strmatch(dim[d], 'lon') then $
+      if strmatch(dim[d], 'xi_*') then $
          result.horizontal[0] = dim[d]
-      if strmatch(dim[d], 'eta_*') || strmatch(dim[d], 'lat') then $
+      if strmatch(dim[d], 'eta_*') then $
          result.horizontal[1] = dim[d]
       if strmatch(dim[d], '*time*') then $
          result.time = dim[d]
@@ -4371,7 +3967,7 @@ function MGHromsHistory::VarGet, var, $
 
    if n_elements(autoscale) eq 0 then autoscale = 1B
 
-   case 1B of
+   case !true of
 
       isa(var, 'STRING') && (var eq 'psi'): begin
          result = self->VarGet('psi(ubar,vbar,zeta)', AUTOSCALE=autoscale, COUNT=count, OFFSET=offset)
@@ -4724,7 +4320,7 @@ pro MGHromsHistory::VarInfo, var, $
    compile_opt STRICTARRSUBS
    compile_opt LOGICAL_PREDICATE
 
-   case 1B of
+   case !true of
 
       isa(var, 'STRING') && (var eq 'psi'): begin
          self->VarInfo, 'psi(ubar,vbar,zeta)', $
@@ -4753,7 +4349,6 @@ pro MGHromsHistory::VarInfo, var, $
          datatype = 'FLOAT'
          n_atts = 0
          self->VarInfo, vv[0], $
-            DIM_NAMES=dim_names, DIMENSIONS=dimensions, FILL_VALUE=fill_value, N_DIMS=n_dims
          dim_names[0] = 'xi_rho'
          dim_names[1] = 'eta_rho'
          dimensions[0] = self->MGHncSequence::DimInfo('xi_rho', /DIMSIZE)
