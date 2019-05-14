@@ -5,18 +5,18 @@
 ; PURPOSE:
 ;   For a specified grid, read grid-vertex data from a file and return
 ;   the corresponding MGHromsHistory::PsliceGrid structure
-;   
+;
 ; MODIFICATION HISTORY:
 ;   Mark Hadfield, 2019-05:
 ;     Written as a generalised form of acee_inter_curvi_pslice.
 ;-
-function mgh_roms_read_pslice, ogrd, file
+function mgh_roms_read_pslice, ogrd, file, NAME=name
 
    compile_opt DEFINT32
    compile_opt STRICTARR
    compile_opt STRICTARRSUBS
    compile_opt LOGICAL_PREDICATE
-   
+
    if n_elements(ogrd) eq 0 then $
       message, 'Undefined variable: ogrd'
 
@@ -44,6 +44,6 @@ function mgh_roms_read_pslice, ogrd, file
 
    vert = vert->ToArray()
 
-   return, ogrd->PsliceGrid(VERT_XI=vert[*,0], VERT_ETA=vert[*,1])
+   return, ogrd->PsliceGrid(NAME=name, VERT_XI=vert[*,0], VERT_ETA=vert[*,1])
 
 end

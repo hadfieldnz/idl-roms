@@ -1343,7 +1343,7 @@ function MGHromsHistory::GetTransportPslice, $
    if n_elements(use_zeta) eq 0 then use_zeta = !false
 
    ;; Get ubar & vbar data for a rectangular region spanning the
-   ;; X-slice
+   ;; P-slice
 
    xr = [floor(min(grid.point_xi_rho)),ceil(max(grid.point_xi_rho))]
    er = [floor(min(grid.point_eta_rho)),ceil(max(grid.point_eta_rho))]
@@ -2339,7 +2339,7 @@ end
 ; MGHromsHistory::PsliceGrid
 ;
 function MGHromsHistory::PsliceGrid, $
-   LONLAT=lonlat, VERT_XI=vert_xi, VERT_ETA=vert_eta
+   NAME=name, LONLAT=lonlat, VERT_XI=vert_xi, VERT_ETA=vert_eta
 
    compile_opt DEFINT32
    compile_opt STRICTARR
@@ -2348,6 +2348,8 @@ function MGHromsHistory::PsliceGrid, $
 
    if n_elements(lonlat) eq 0 then $
       lonlat = self->HasVar('lon_rho') && self->HasVar('lat_rho')
+
+   if n_elements(name) eq 0 then name = ''
 
    ;; The default P-slice is the "southern" normal velocity model boundary,
    ;; as for the GetTransportSlice method.
@@ -2502,6 +2504,7 @@ function MGHromsHistory::PsliceGrid, $
 
    result = dictionary()
 
+   result.name = name
    result.lonlat = lonlat
    result.vert_xi = vert_xi
    result.vert_eta = vert_eta

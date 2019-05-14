@@ -88,7 +88,17 @@ pro mgh_roms_plot_layout, option, LM=lm, MM=mm, N=n
         COLOR=mgh_color('(0,159,0)'), RESULT=osym
       ograph->NewAtom, 'IDLgrPlot', x_v[*], y_v[*], LINESTYLE=6, SYMBOL=osym
 
-      ;; Draw a line around the physical boundary
+      ;; Dotted lines representing cell faces
+      for i=0,lm do begin
+         ograph->NewAtom, 'IDLgrPlot', COLOR=mgh_color('red'), LINESTYLE=1, $
+            mgh_avg(x_rho[i:i+1,*],1), mgh_avg(y_rho[i:i+1,*],1)
+      endfor
+      for j=0,mm do begin
+         ograph->NewAtom, 'IDLgrPlot', COLOR=mgh_color('red'), LINESTYLE=1, $
+            mgh_avg(x_rho[*,j:j+1],2), mgh_avg(y_rho[*,j:j+1],2)
+      endfor
+
+      ;; Draw a line around the physical (normal velocity) boundary
       ograph->NewAtom, 'IDLgrPlot', COLOR=mgh_color('red'), $
         [x_psi[*,0],reform(x_psi[lm,*]), $
         reverse(x_psi[*,mm]),reverse(reform(x_psi[0,*]))], $
