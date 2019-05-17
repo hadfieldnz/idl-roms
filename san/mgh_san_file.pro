@@ -81,6 +81,12 @@
 ;     (internal routine MGH_SAN_FILE_MOUNTED) or scp (internal routine MGH_SAN_FILE_SSH).
 ;   Mark Hadfield, 2016-01
 ;     Re-indented source code.
+;   Mark Hadfield, 2019-05
+;     In checking for the existence of the master file, this routine used
+;     to call file_test with the READ keyword set. However this test gives
+;     incorrect results on some Maui volumes (the file exists and can be 
+;     read or copied, but the test returns !false). So now we just call
+;     file_test.
 ;-
 function mgh_san_file_mounted, name, $
      MIRROR=mirror, MTIME=mtime, SUBDIRECTORY=subdirectory, $
@@ -114,14 +120,14 @@ function mgh_san_file_mounted, name, $
       file_mirror[f] = mgh_san_path(name[f], MIRROR=mirror, SUBDIRECTORY=subdirectory, VOLUME=volume)
       file_master[f] = mgh_san_path(name[f], MIRROR=0, SUBDIRECTORY=subdirectory, VOLUME=volume)
       case !true of
-         file_test(file_master[f], /READ): begin
+         file_test(file_master[f]): begin
             file_packed[f] = 0B
          end
-         file_test(file_master[f]+'.gz', /READ): begin
+         file_test(file_master[f]+'.gz'): begin
             file_master[f] += '.gz'
             file_packed[f] = 1B
          end
-         file_test(file_master[f]+'.bz2', /READ): begin
+         file_test(file_master[f]+'.bz2'): begin
             file_master[f] += '.bz2'
             file_packed[f] = 2B
          end
