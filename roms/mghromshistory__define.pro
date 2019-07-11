@@ -3321,8 +3321,8 @@ function MGHromsHistory::XsliceGrid, $
       mask = mask[round(xi-xr0),round(eta-er0)]
    endif
 
-   ;; Adjust angle so it is relative to ROMS grid. Keep
-   ;; angle relative to geographic coordinates as true_angle
+   ;; Adjust angle so it is relative to ROMS grid. Keep the previously-calculated
+   ;; angle relative to geographic coordinates as variable true_angle
 
    true_angle = angle
 

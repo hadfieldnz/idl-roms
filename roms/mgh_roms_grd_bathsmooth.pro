@@ -1,4 +1,3 @@
-; svn $Id$
 ;+
 ; NAME:
 ;   MGH_ROMS_GRD_BATHSMOOTH
