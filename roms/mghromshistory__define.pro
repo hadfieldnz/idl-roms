@@ -1325,7 +1325,8 @@ end
 ;   from right to left.
 ;
 function MGHromsHistory::GetTransportPslice, $
-   GRID=grid, RECORD=record, VAR_UBAR=var_ubar, VAR_VBAR=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta
+   GRID=grid, RECORD=record, VAR_UBAR=var_ubar, VAR_VBAR=var_vbar, VAR_ZETA=var_zeta, $
+   USE_ZETA=use_zeta, WHOLE_DOMAIN=whole_domain
 
    compile_opt DEFINT32
    compile_opt STRICTARR
@@ -1340,49 +1341,95 @@ function MGHromsHistory::GetTransportPslice, $
    if n_elements(var_vbar) eq 0 then var_vbar = 'vbar'
    if n_elements(var_zeta) eq 0 then var_zeta = 'zeta'
 
-   if n_elements(use_zeta) eq 0 then use_zeta = !false
+   if n_elements(use_zeta) eq 0 then use_zeta = !true
 
-   ;; Get ubar & vbar data for a rectangular region spanning the
-   ;; P-slice
+   ;; The WhOLE_DOMAIN is a debugging and testing tool, though it might be
+   ;; retained indefinitely. If switched on, we retrieve ubar and vbar over
+   ;; the whole domain rather than over a subset enclosing the P-slice.
+   ;; For zeta, the whole domain is retrieved in  any case to allow filling.
 
-   xr = [floor(min(grid.point_xi_rho)),ceil(max(grid.point_xi_rho))]
-   er = [floor(min(grid.point_eta_rho)),ceil(max(grid.point_eta_rho))]
+   if n_elements(whole_domain) eq 0 then whole_domain = !false
 
-   xr0 = xr[0]  &  xrn = xr[1]-xr[0]+1
-   er0 = er[0]  &  ern = er[1]-er[0]+1
+   ;; Where WHOLE_DOMAIN has not been set, calculate the region on the PSI grid
+   ;; spanning the Pslice. The code below has been checked against the
+   ;; whole-domain code and both have been checked against separate calculations
+   ;; using the stream function. It all seems to work OK but hasn't been tested
+   ;; near the boundaries.
 
-   uv = self->VectorGet([var_ubar,var_vbar], OFFSET=[xr0,er0,record], COUNT=[xrn,ern,1])
-
-   message, 'OK, time to start thinking!'
-
-   ;; Interpolate to slice interval mid-points
-
-   xx = mgh_stagger(grid.xi, DELTA=[-1])-xr0
-   ee = mgh_stagger(grid.eta, DELTA=-1)-er0
-
-   uv = interpolate(temporary(uv), xx, ee)
-
-   ;; Rotate into slice-relative coordinates.
-
-   uv = temporary(uv)*exp(-!const.i*grid.angle)
-
-   ;; Calculate depth at interval mid-points
-
-   h = mgh_stagger(grid.h, DELTA=[-1])
-
-   if keyword_set(use_zeta) then begin
-      zeta = self->VarGet(var_zeta, OFFSET=[xr0,er0,record], COUNT=[xrn,ern,1])
-      zeta = mgh_fill2d(zeta)
-      xx = mgh_stagger(grid.xi, DELTA=[-1])-xr0
-      ee = mgh_stagger(grid.eta, DELTA=-1)-er0
-      h += interpolate(temporary(zeta), xx, ee)
+   if ~ keyword_set(whole_domain) then begin
+      xr = [floor(min(grid.centre_xi_rho)),ceil(max(grid.centre_xi_rho))]
+      er = [floor(min(grid.centre_eta_rho)),ceil(max(grid.centre_eta_rho))]
+      xr0 = xr[0]  &  xrn = xr[1]-xr[0]+1
+      er0 = er[0]  &  ern = er[1]-er[0]+1
    endif
 
-   ;; The normal velocity is the imaginary part of the complex velocity
+   ;; Retrieve depth-average velocity and optionally sea surface elevation
 
-   result = dblarr(grid.n_points)
-   for i=1,grid.n_points-1 do begin
-      result[i] = result[i-1] + imaginary(uv[i-1])*h[i-1]*(grid.arc[i]-grid.arc[i-1])
+   if keyword_set(whole_domain) then begin
+      ubar = self->VarGet(var_ubar, OFFSET=[0,0,record], COUNT=[0,0,1])
+      vbar = self->VarGet(var_vbar, OFFSET=[0,0,record], COUNT=[0,0,1])
+   endif else begin
+      ubar = self->VarGet(var_ubar, OFFSET=[xr0,er0,record], COUNT=[xrn,ern,1])
+      vbar = self->VarGet(var_vbar, OFFSET=[xr0,er0,record], COUNT=[xrn,ern,1])
+   endelse
+
+   if keyword_set(use_zeta) then begin
+      ;; Get zeta over the whole domain for each record so that filling can be done.
+      zeta = self->VarGet(var_zeta, OFFSET=[0,0,record], COUNT=[0,0,1])
+      zeta = mgh_fill2d(zeta)
+   endif
+
+   ;; Work along the Pslice, evaluating the normal velocity at each segment
+
+   vseg = dblarr(grid.n_point-1)
+   zseg = dblarr(grid.n_point-1)
+
+   if keyword_set(whole_domain) then begin
+      for s=0,grid.n_point-2 do begin
+         case grid.direction[s] of
+            0: vseg[s] = vbar[grid.point_xi[s]+1,grid.point_eta[s]]
+            1: vseg[s] = -(ubar[grid.point_xi[s],grid.point_eta[s]+1])
+            2: vseg[s] = -(vbar[grid.point_xi[s],grid.point_eta[s]])
+            3: vseg[s] = ubar[grid.point_xi[s],grid.point_eta[s]]
+         endcase
+      endfor
+   endif else begin
+      for s=0,grid.n_point-2 do begin
+         case grid.direction[s] of
+            0: vseg[s] = vbar[grid.point_xi[s]-xr0+1,grid.point_eta[s]-er0]
+            1: vseg[s] = -(ubar[grid.point_xi[s]-xr0,grid.point_eta[s]-er0+1])
+            2: vseg[s] = -(vbar[grid.point_xi[s]-xr0,grid.point_eta[s]-er0])
+            3: vseg[s] = ubar[grid.point_xi[s]-xr0,grid.point_eta[s]-er0]
+         endcase
+      endfor
+   endelse
+
+   ;; Optionally calculate zeta at each segment
+
+   if keyword_set(use_zeta) then begin
+
+      for s=0,grid.n_point-2 do begin
+         case grid.direction[s] of
+            0: zseg[s] = 0.5D0*(zeta[grid.point_xi[s]+1,grid.point_eta[s]] + $
+               zeta[grid.point_xi[s]+1,grid.point_eta[s]+1])
+            1: zseg[s] = 0.5D0*(zeta[grid.point_xi[s],grid.point_eta[s]+1] + $
+               zeta[grid.point_xi[s]+1,grid.point_eta[s]+1])
+            2: zseg[s] = 0.5D0*(zeta[grid.point_xi[s],grid.point_eta[s]] + $
+               zeta[grid.point_xi[s],grid.point_eta[s]+1])
+            3: zseg[s] = 0.5D0*(zeta[grid.point_xi[s],grid.point_eta[s]] + $
+               zeta[grid.point_xi[s]+1,grid.point_eta[s]])
+         endcase
+      endfor
+
+   endif
+
+   ;; Calculate and accumulate the normal transport
+
+   result = dblarr(grid.n_point)
+
+   for s=1,grid.n_point-1 do begin
+      result[s] = result[s-1] + $
+         vseg[s-1]*(grid.centre_h[s-1]+zseg[s-1])*(grid.point_arc[s]-grid.point_arc[s-1])
    endfor
 
    return, result
@@ -2449,28 +2496,28 @@ function MGHromsHistory::PsliceGrid, $
    ;; Interpolate various variables to the Pslice points and centres
 
    h = self->VarGet('h')
-   point_h = interpolate(h, point_xi_rho, point_eta_rho)
-   centre_h = interpolate(h, centre_xi_rho, centre_eta_rho)
+   point_h = interpolate(h, point_xi_rho, point_eta_rho, /DOUBLE)
+   centre_h = interpolate(h, centre_xi_rho, centre_eta_rho, /DOUBLE)
    mgh_undefine, h
 
    if lonlat then begin
       lon = self->VarGet('lon_rho')
       lat = self->VarGet('lat_rho')
-      point_lon = interpolate(lon, point_xi_rho, point_eta_rho)
-      point_lat = interpolate(lat, point_xi_rho, point_eta_rho)
+      point_lon = interpolate(lon, point_xi_rho, point_eta_rho, /DOUBLE)
+      point_lat = interpolate(lat, point_xi_rho, point_eta_rho, /DOUBLE)
       mgh_undefine, lon, lat
    endif else begin
       x = self->VarGet('x_rho')
       y = self->VarGet('y_rho')
-      point_x = interpolate(x, point_xi_rho, point_eta_rho)
-      point_y = interpolate(y, point_xi_rho, point_eta_rho)
+      point_x = interpolate(x, point_xi_rho, point_eta_rho, /DOUBLE)
+      point_y = interpolate(y, point_xi_rho, point_eta_rho, /DOUBLE)
       mgh_undefine, x, y
    endelse
 
    pm = self->VarGet('pm')
    pn = self->VarGet('pn')
-   centre_pm = interpolate(pm, centre_xi_rho, centre_eta_rho)
-   centre_pn = interpolate(pn, centre_xi_rho, centre_eta_rho)
+   centre_pm = interpolate(pm, centre_xi_rho, centre_eta_rho, /DOUBLE)
+   centre_pn = interpolate(pn, centre_xi_rho, centre_eta_rho, /DOUBLE)
    mgh_undefine, pm, pn
 
    ;; For each segment, determine whether it has land on either side

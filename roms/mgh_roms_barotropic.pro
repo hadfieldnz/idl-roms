@@ -109,7 +109,7 @@ function mgh_roms_barotropic, ohis, $
    lon_psi = mgh_stagger(lon, DELTA=[-1,-1])
    lat_psi = mgh_stagger(lat, DELTA=[-1,-1])
 
-   h = ohis->VarGet('h', OFFSET=offset, COUNT=count)
+   h = double(ohis->VarGet('h', OFFSET=offset, COUNT=count))
 
    h_u = mgh_stagger(h, DELTA=[-1,0])
    h_v = mgh_stagger(h, DELTA=[0,-1])
@@ -148,9 +148,9 @@ function mgh_roms_barotropic, ohis, $
       message, /INFORM, strjoin(temporary(msg), ' ')
    endelse
 
-   ubar = 0
-   vbar = 0
-   zeta = 0
+   ubar = 0D
+   vbar = 0D
+   zeta = 0D
 
    for r=0,rran-1 do begin
 
@@ -169,11 +169,11 @@ function mgh_roms_barotropic, ohis, $
          count_zeta = [count_zeta,1]
       endif
 
-      ubar += ohis->VarGet(var_ubar, OFFSET=offset_ubar, COUNT=count_ubar, /AUTOSCALE)/float(rran)
-      vbar += ohis->VarGet(var_vbar, OFFSET=offset_vbar, COUNT=count_vbar, /AUTOSCALE)/float(rran)
+      ubar += ohis->VarGet(var_ubar, OFFSET=offset_ubar, COUNT=count_ubar, /AUTOSCALE)/double(rran)
+      vbar += ohis->VarGet(var_vbar, OFFSET=offset_vbar, COUNT=count_vbar, /AUTOSCALE)/double(rran)
 
       if keyword_set(use_zeta) then begin
-         zeta += ohis->VarGet(var_zeta, OFFSET=offset_zeta, COUNT=count_zeta, /AUTOSCALE)/float(rran)
+         zeta += ohis->VarGet(var_zeta, OFFSET=offset_zeta, COUNT=count_zeta, /AUTOSCALE)/double(rran)
       endif
 
    endfor

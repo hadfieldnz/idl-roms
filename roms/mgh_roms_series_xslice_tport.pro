@@ -6,11 +6,10 @@
 ;   This function extracts and returns a time series of transport thru a specified
 ;   section (Xslice) using data from a ROMS history file.
 ;
-;   I am thinking of modifying this function so that it receives the Xslice grid structure
-;   as an argument--rather constructing it internally.
+;   See also: MGH_ROMS_SERIES_XSLICE_PSI, MGH_ROMS_SERIES_PSLICE_TPORT
 ;
 ; CALLING SEQUENCE
-;   result = mgh_roms_series_xslice_tport(ohis, VERTX=vertx, VERTY=verty)
+;   result = mgh_roms_series_xslice_tport(ohis, grid)
 ;
 ; RETURN VALUE:
 ;   The function returns the time series and ancillary information in
@@ -20,29 +19,10 @@
 ;   ohis (input, object)
 ;     A reference to an MGHromsHistory object.
 ;
+;   grid (input, structure)
+;     The Xslice grid structure.
+;
 ; KEYWORD ARGUMENTS:
-; The following keyowrds are used in defining the Xslice grid:
-;
-;   TYPE (input, scalar string)
-;     The Xslice type; valid values are 'linear', 'piecewise' and 'spline'.
-;     The default is 'linear'.
-;
-;   INTERVAL (input, numeric scalar)
-;     Used in setting up spline Xslices
-;
-;   N_INTERMEDIATE (input, integer scalar)
-;     Used in setting up piecewise Xslices
-;
-;   LONLAT (input, switch)
-;    This keyword specicifies whether the vertex locations (VERTX and VERTY)
-;    are defined in (x,y) or (lon,lat). The default is !true if the history
-;    file has (lon,lat) data and !false otherwise.
-;
-;   VERTX (input, numeric vector)
-;   VERTY (input, numeric vector)
-;     Vertex locations defining the Xslice.
-;
-; The following keywords are used in calculating the transport:
 ;
 ;   VAR_UBAR (input, string scalar)
 ;   VAR_VBAR (input, string scalar)
@@ -65,10 +45,11 @@
 ;     Written.
 ;   Mark Hadfield, 2017-09:
 ;     Fixed bug: the function destroyed its ohis object.
+;   Mark Hadfield, 2019-11:
+;     The function is now supplied with a grid structure via its "grid"
+;     argument rather than constructing one internally.
 ;-
-function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
-     INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, $
-     VERTX=vertx, VERTY=verty, TYPE=type, $
+function mgh_roms_series_xslice_tport, ohis, grid, RECALC=recalc, $
      RECORD_RANGE=record_range, TIME_RANGE=time_range, $
      VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta
 
@@ -81,18 +62,12 @@ function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
 
    if n_elements(ohis) eq 0 then $
       message, BLOCK='mgh_mblk_motley', NAME='mgh_m_undefvar', 'ohis'
-
-   if n_elements(ohis) gt 1 then $
-      message, BLOCK='mgh_mblk_motley', NAME='mgh_m_wrgnumelem', 'ohis'
-
    if ~ obj_valid(ohis) gt 1 then $
       message, BLOCK='mgh_mblk_motley', NAME='mgh_m_objref_bad', 'ohis'
-
-   ;; Process arguments used in contructing the Xslice
-
-   if n_elements(type) eq 0 then type = 'linear'
-
-   if n_elements(lonlat) eq 0 then lonlat = ohis->HasVar('lon_rho') && ohis->HasVar('lat_rho')
+   if n_elements(grid) eq 0 then $
+      message, BLOCK='mgh_mblk_motley', NAME='mgh_m_undefvar', 'grid'
+   if ~ isa(grid, 'STRUCT') then $
+      message, BLOCK='mgh_mblk_motley', NAME='mgh_m_wrongtype', 'grid'
 
    ;; Process arguments controlling variable selection
 
@@ -131,15 +106,8 @@ function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
    str_var = mgh_format_integer(mgh_hashcode([var_ubar,var_vbar,var_zeta]))
    str_use = mgh_format_integer(keyword_set(use_zeta))
 
-   tmpfile = list('mgh_roms_series_xslice_tport', 'file', str_file, 'type', type, 'var', str_var, 'use', str_use, 'll', mgh_format_integer(lonlat))
-   if n_elements(interval) gt 0 then $
-      tmpfile->Add, ['int',mgh_format_float(interval)], /EXTRACT
-   if n_elements(n_intermediate) gt 0 then $
-      tmpfile->Add, ['nin',mgh_format_integer(n_intermediate)], /EXTRACT
-   if n_elements(vertx) gt 0 then $
-      tmpfile->Add, ['vx',mgh_format_integer(mgh_hashcode(vertx))], /EXTRACT
-   if n_elements(verty) gt 0 then $
-      tmpfile->Add, ['vy',mgh_format_integer(mgh_hashcode(verty))], /EXTRACT
+   tmpfile = list('mgh_roms_series_pslice_tport', 'file', str_file, 'var', str_var, $
+      'use', str_use, 'grid', mgh_format_integer(mgh_hashcode(grid)))
    if n_elements(time_range) gt 0 then $
       tmpfile->Add, ['tr',mgh_format_float(time_range)], /EXTRACT
    tmpfile = filepath(strjoin(tmpfile->ToArray(), '_')+'.idl_data', /TMP)
@@ -151,8 +119,6 @@ function mgh_roms_series_xslice_tport, ohis, RECALC=recalc, $
       restore, FILE=tmpfile
       return, result
    endif
-
-   grid = ohis->XsliceGrid(INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, VERTX=vertx, VERTY=verty, TYPE=type)
 
    ;; Establish time variable name and records to be extracted. Get time data
 

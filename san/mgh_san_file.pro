@@ -84,7 +84,7 @@
 ;   Mark Hadfield, 2019-05
 ;     In checking for the existence of the master file, this routine used
 ;     to call file_test with the READ keyword set. However this test gives
-;     incorrect results on some Maui volumes (the file exists and can be 
+;     incorrect results on some Maui volumes (the file exists and can be
 ;     read or copied, but the test returns !false). So now we just call
 ;     file_test.
 ;-

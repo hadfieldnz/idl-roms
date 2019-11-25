@@ -88,7 +88,7 @@ pro mgh_roms_bry_load_fixed_tracer, file_bry, $
 
    if ~ obry->HasDim(time_name) then message, 'Time dimension missing'
    if ~ obry->HasVar(time_name) then message, 'Time variable missing'
-   
+
    n_time = obry->DimInfo(time_name, /DIMSIZE)
 
    ;; Get grid dimensions

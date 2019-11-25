@@ -23,7 +23,7 @@
 ;     A reference to an MGHromsHistory object.
 ;
 ;   grid (input, structure)
-;     Tnhe Pslice grid structure.
+;     The Pslice grid structure.
 ;
 ; KEYWORD ARGUMENTS:
 ; The following keywords are used in calculating the transport:
@@ -50,7 +50,8 @@
 ;-
 function mgh_roms_series_pslice_tport, ohis, grid, RECALC=recalc, $
      RECORD_RANGE=record_range, TIME_RANGE=time_range, $
-     VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta
+     VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, $
+     USE_ZETA=use_zeta, WHOLE_DOMAIN=whole_domain
 
    compile_opt DEFINT32
    compile_opt STRICTARR
@@ -75,6 +76,8 @@ function mgh_roms_series_pslice_tport, ohis, grid, RECALC=recalc, $
    if n_elements(var_zeta) eq 0 then var_zeta = 'zeta'
 
    if n_elements(use_zeta) eq 0 then use_zeta = !true
+
+   if n_elements(whole_domain) eq 0 then whole_domain = !false
 
    ;; Get & check variable dimensions.
 
@@ -104,9 +107,10 @@ function mgh_roms_series_pslice_tport, ohis, grid, RECALC=recalc, $
    str_file = mgh_format_integer(mgh_hashcode(fname))
    str_var = mgh_format_integer(mgh_hashcode([var_ubar,var_vbar,var_zeta]))
    str_use = mgh_format_integer(keyword_set(use_zeta))
+   str_whole = mgh_format_integer(keyword_set(whole_domain))
 
    tmpfile = list('mgh_roms_series_pslice_tport', 'file', str_file, 'var', str_var, $
-      'use', str_use, 'grid', mgh_format_integer(mgh_hashcode(grid)))
+      'use', str_use, 'whole', str_whole, 'grid', mgh_format_integer(mgh_hashcode(grid)))
    if n_elements(time_range) gt 0 then $
       tmpfile->Add, ['tr',mgh_format_float(time_range)], /EXTRACT
    tmpfile = filepath(strjoin(tmpfile->ToArray(), '_')+'.idl_data', /TMP)
