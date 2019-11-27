@@ -3163,12 +3163,15 @@ end
 ; MGHromsHistory::XsliceGrid
 ;
 function MGHromsHistory::XsliceGrid, $
-     INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, VERTX=vertx, VERTY=verty, TYPE=type
+     INTERVAL=interval, LONLAT=lonlat, N_INTERMEDIATE=n_intermediate, $
+     VERTX=vertx, VERTY=verty, NAME=name, TYPE=type
 
    compile_opt DEFINT32
    compile_opt STRICTARR
    compile_opt STRICTARRSUBS
    compile_opt LOGICAL_PREDICATE
+
+   if n_elements(name) eq 0 then name = ''
 
    if n_elements(type) eq 0 then type = 'linear'
 
@@ -3380,7 +3383,7 @@ function MGHromsHistory::XsliceGrid, $
 
    ;; Return result structure
 
-   return, {lonlat: lonlat, n_points: n_points, x: x, y: y, arc: arc, $
+   return, {name: name, lonlat: lonlat, n_points: n_points, x: x, y: y, arc: arc, $
       xi: xi, eta: eta, angle: angle, true_angle: true_angle, h: h, mask: mask}
 
 end

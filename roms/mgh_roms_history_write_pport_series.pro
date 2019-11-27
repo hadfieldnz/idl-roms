@@ -1,15 +1,15 @@
 ;+
 ; NAME:
-;   MGH_ROMS_HISTORY_WRITE_TPORT_SERIES
+;   MGH_ROMS_HISTORY_WRITE_PPORT_SERIES
 ;
 ; PURPOSE:
 ;   For a ROMS history or similar file, calculate time series of volume
-;   transport through one or more Xslices and write them to a netCDF file.
+;   transport through one or more Pslices and write them to a netCDF file.
 ;
-;   See also MGH_ROMS_HISTORY_WRITE_PPORT_SERIES.
+;   See also MGH_ROMS_HISTORY_WRITE_TPORT_SERIES.
 ;
 ; CALLING SEQUENCE:
-;   mgh_roms_history_write_tport_series, history, section
+;   mgh_roms_history_write_pport_series, history, slice
 ;
 ; POSITIONAL PARAMETERS:
 ;   history
@@ -17,12 +17,8 @@
 ;     specifying a list of ROMS history files or a single string with
 ;     wildcards specifying a list of ROMS history files.
 ;
-;   section (input, structure vector)
-;     The section(s) for which the transport is to be calculated. The
-;     structure must have the tags "lon" and "lat" (both 2-element vectors)
-;     and optionally "name" (string scalar). The routine constructs linear
-;     Xslices (as defined in the MGHromsHistory class) and calculates
-;     time series of transport for each one.
+;   slice (input, a list of structures)
+;     The P-slices for which the transport is to be calculated.
 ;
 ; KEYWORD PARAMETERS:
 ;   FILE_OUT (input, scalar string)
@@ -37,19 +33,10 @@
 ;     maximum times.
 ;
 ; MODIFICATION HISTORY:
-;   Mark Hadfield, 2017-08:
-;     Written.
-;   Mark Hadfield, 2019-04:
-;     - Fixed bug: the UNPACK keyword should not have been set when
-;       copying the defintions for the ocean_time variable.
-;     - Added VAR_UBAR/VBAR/ZETA keywords, passed to
-;       mgh_roms_series_xslice_tport.
 ;   Mark Hadfield, 2019-11:
-;     - Added a USE_ZETA keyword.
-;     - The function now accepts an xslice argument specifying one or more
-;       X-slice structures, as returned by MGHromsHistory::XsliceGrid.
+;     Written based on MGH_ROMS_HISTORY_WRITE_TPORT_SERIES.
 ;-
-pro mgh_roms_history_write_tport_series, history, slice, file_out, $
+pro mgh_roms_history_write_pport_series, history, slice, file_out, $
      RECALC=recalc, TIME_RANGE=time_range, $
      VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta, USE_ZETA=use_zeta
 
@@ -89,7 +76,7 @@ pro mgh_roms_history_write_tport_series, history, slice, file_out, $
    data = list()
 
    foreach s,slice,i do begin
-      data->Add, mgh_roms_series_xslice_tport(ohis, s, $
+      data->Add, mgh_roms_series_pslice_tport(ohis, s, $
          TIME_RANGE=time_range, RECALC=recalc, USE_ZETA=use_zeta, $
          VAR_UBAR=var_ubar, VAR_vbar=var_vbar, VAR_ZETA=var_zeta)
       if i eq 0 then begin
@@ -108,7 +95,7 @@ pro mgh_roms_history_write_tport_series, history, slice, file_out, $
    ;; Construct & write an appropriate history attribute, appending it to any
    ;; existing such attribute
 
-   fmt = '(%"Created by procedure mgh_roms_history_write_tport_series at %s")'
+   fmt = '(%"Created by procedure mgh_roms_history_write_pport_series at %s")'
    oout->AttAdd, /GLOBAL, 'history', string(FORMAT=fmt, mgh_dt_string(mgh_dt_now()))
 
    ;; Create dimensions
