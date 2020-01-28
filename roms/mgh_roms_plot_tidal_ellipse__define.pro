@@ -175,7 +175,7 @@ function Mgh_Roms_Plot_Tidal_Ellipse::Init, $
 
    ;; Get grid data required for horizontal slice retrievals
 
-   grid = ohis->HsliceGrid(var_sma, ETA_RANGE=var_eta_range, XI_RANGE=var_xi_range)
+   grid = ohis->HsliceGrid(var_sma, ETA_RANGE=eta_range, XI_RANGE=xi_range)
 
    self.lonlat = grid.lonlat
 
