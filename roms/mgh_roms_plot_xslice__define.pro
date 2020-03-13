@@ -67,6 +67,7 @@ function MGH_ROMS_Plot_Xslice::Init, history, variable, $
      COLORBAR_PROPERTIES=colorbar_properties, $
      CONTOUR_PROPERTIES=contour_properties, $
      GRAPH_PROPERTIES=graph_properties, $
+     FONT_PROPERTIES=font_properties, $
      PALETTE_PROPERTIES=palette_properties, $
      XSLICE_PROPERTIES=xslice_properties, $
      _REF_EXTRA=_extra
@@ -208,8 +209,7 @@ function MGH_ROMS_Plot_Xslice::Init, history, variable, $
 
    ograph->GetProperty, DELTAZ=deltaz, FONTSIZE=fsize
 
-   ograph->NewFont, SIZE=fsize
-   ograph->NewFont, SIZE=0.9*fsize
+   ograph->NewFont, SIZE=fsize, _STRICT_EXTRA=font_properties
 
    ;; Add title
 
@@ -283,7 +283,6 @@ function MGH_ROMS_Plot_Xslice::Init, history, variable, $
         _STRICT_EXTRA=palette_properties
 
    ograph->NewColorBar, RESULT=obar, $
-        FONT=ograph->GetFont(POS=1), $
         DATA_RANGE=data_range, HIDE=(~ show_colorbar), $
         LOGARITHMIC=logarithmic, PALETTE=palette, $
         CONTOUR_PROPERTIES=contour_properties, $
