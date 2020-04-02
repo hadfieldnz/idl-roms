@@ -77,6 +77,8 @@
 ; MODIFICATION HISTORY:
 ;   Mark Hadfield, 2016-01:
 ;     Written based on MGH_ROMS_Movie_Hslice.
+;   Mark Hadfield, 2020-04:
+;     Default colour table now "CMOCEAN Balance"..
 ;-
 function mgh_roms_plot_hslice::Init, $
      history, variable, $
@@ -431,7 +433,7 @@ function mgh_roms_plot_hslice::Init, $
 
    ;; Create the palette and add a colour bar
 
-   ograph->NewPalette, 'Matlab Jet', RESULT=palette, $
+   ograph->NewPalette, 'CMOCEAN Balance', RESULT=palette, $
       _STRICT_EXTRA=palette_properties
 
    ograph->NewColorBar, RESULT=obar, FONT=ograph->GetFont(POS=1), $
